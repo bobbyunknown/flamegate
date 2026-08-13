@@ -1,0 +1,52 @@
+# Binaries & Build Outputs
+/flamegate
+/flamegate.exe
+bin/
+dist/
+fg-test
+*.test
+*.out
+
+# Go & Dependencies
+vendor/
+coverage.txt
+
+# Frontend (Vite / React)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+*.tsbuildinfo
+*.local
+
+# Database & Runtime Data
+*.db
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+data/
+.flamegate/
+tmp/
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+master.key
+
+# Editor & OS Metadata
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.kiro/
+
+# Project Specific & Extensions
+flamegate.toml
+.mcp.json
+_research/
+docs/

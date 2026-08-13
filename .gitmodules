@@ -1,0 +1,3 @@
+[submodule "flamegate-ext"]
+	path = flamegate-ext
+	url = https://github.com/bobbyunknown/flamegate-ext.git

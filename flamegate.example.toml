@@ -1,0 +1,117 @@
+# FlameGate configuration.
+#
+# Copy this file to flamegate.toml and edit as needed.
+# Loaded automatically from ~/.flamegate/flamegate.toml when no -c flag is given.
+# Environment overrides: FLAMEGATE_SERVER__PORT=8080 → server.port
+#
+# Precedence: defaults < config file < environment variables.
+
+# ── Server ─────────────────────────────────────────────────────────────────
+[server]
+host = "127.0.0.1"
+port = 20180
+# Dedicated port for the client/proxy API (/v1, chat, models, …).
+# 0 or omitted = /v1 shares server.port with the admin dashboard (/api).
+# When set to a different port, admin stays on server.port and /v1 only binds here.
+# Env: FLAMEGATE_SERVER__PROXY_PORT=20181
+proxy_port = 20181
+# CORS origins for the dashboard. Add your frontend dev server URL here.
+cors_origins = ["http://localhost:5180", "http://127.0.0.1:5180"]
+# Stall timeout — aborts a stream that produces no bytes for this long.
+# stream_stall_timeout = "60s"
+# Bounds non-streaming upstream calls.
+# request_timeout = "5m"
+# Max in-flight API requests. 0 = unlimited.
+# max_concurrent_requests = 100
+
+# ── Database ───────────────────────────────────────────────────────────────
+[database]
+# Driver: "sqlite" (zero-config, default) or "postgres".
+driver = "sqlite"
+# DSN for postgres: "postgres://user:pass@host:5432/dbname?sslmode=disable"
+# dsn = ""
+# Connection pool tuning (mainly for postgres).
+# max_open_conns = 4
+# max_idle_conns = 4
+
+# ── Security ───────────────────────────────────────────────────────────────
+[security]
+# Master key for envelope encryption of credentials. Auto-generated on first
+# run and persisted to <data_dir>/master.key. Provide via env in production.
+# master_key = ""
+# JWT secret for dashboard sessions. Auto-generated if empty.
+# jwt_secret = ""
+# Session lifetime.
+# session_ttl = "24h"
+# Reject non-loopback dashboard/API access. Set false behind a reverse proxy.
+# bind_loopback_only = true
+# Allow loopback/RFC1918 provider base URLs (self-hosted LLM endpoints).
+# allow_private_base_url = false
+
+# ── Logging ────────────────────────────────────────────────────────────────
+[log]
+# Level: debug, info, warn, error. Dev builds default to debug.
+level = "info"
+# Format: "text" (human-readable, colored in TTY) or "json" (structured).
+format = "text"
+
+# ── Data ───────────────────────────────────────────────────────────────────
+[data]
+# Root data directory. Empty => ~/.flamegate
+# dir = ""
+
+# ── Cache (semantic response cache) ────────────────────────────────────────
+[cache]
+enabled = false
+# Backend: "memory" (in-process) or "redis".
+# backend = "memory"
+# redis_url = "redis://127.0.0.1:6379"
+# similarity_threshold = 0.95
+# ttl = "1h"
+# Embedding provider: "hash" (exact-match, no deps) or "api" (semantic).
+# embedding_provider = "hash"
+# embedding_api_url = "https://api.openai.com/v1"
+# embedding_api_key = ""
+# embedding_model = "text-embedding-3-small"
+# embedding_dims = 1536
+
+# ── Rate Limits (per-key) ──────────────────────────────────────────────────
+[limits]
+enabled = false
+# Backend: "memory". "redis" reserved for distributed limits.
+# backend = "memory"
+# Default limits for keys with no assigned plan. 0 = unlimited.
+# default_rpm = 0
+# default_tpm = 0
+# default_concurrency = 0
+# window = "1m"
+
+# ── Health Probes ──────────────────────────────────────────────────────────
+[health]
+enabled = true
+# interval = "30s"
+# timeout = "5s"
+# max_parallel = 8
+# failure_threshold = 2
+# success_threshold = 1
+
+# ── API Documentation ──────────────────────────────────────────────────────
+[docs]
+# Enable Scalar API docs at /docs (loopback only).
+enabled = false
+
+# ── Guardrails (optional external engines) ─────────────────────────────────
+# Native detectors run by default. Populate these to enable external engines.
+# [guardrails]
+# audit_retention_days = 90
+#
+# [guardrails.toxicity]
+# openai_api_key = ""
+# openai_base_url = "https://api.openai.com/v1"
+# openai_model = "omni-moderation-latest"
+# openai_timeout = "10s"
+#
+# [guardrails.pii]
+# presidio_analyzer_url = "http://localhost:5002"
+# presidio_timeout = "5s"
+# presidio_language = "en"

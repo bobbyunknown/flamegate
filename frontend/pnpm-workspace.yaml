@@ -1,0 +1,3 @@
+allowBuilds:
+  canvas: false
+  sharp: true
