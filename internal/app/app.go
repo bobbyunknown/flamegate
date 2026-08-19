@@ -24,6 +24,7 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/budget"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/cache"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/extstore"
 	"github.com/bobbyunknown/flamegate/internal/shared/crypto"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/wasm"
 
@@ -165,6 +166,9 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 		connRegistry.SetForceWasmAll(cfg.WASM.ForceWasmAll)
 		log.Info("WASM fallback registered", "extensions", len(wasmEngine.Slugs()), "force_wasm_all", cfg.WASM.ForceWasmAll)
 	}
+	// Remote extension installer shared by the admin API and CLI. It reuses the
+	// same WASM engine, vault, and ExtensionRepo as startup scanning.
+	extStore := extstore.NewInstallerFromConfig(cfg.WASM, &http.Client{Timeout: 60 * time.Second}, wasmEngine, db.Extensions())
 	// Load user-defined dynamic custom providers and their custom models from
 	// the database so they are routable and discoverable immediately at startup.
 	loadCustomProviders(ctx, db, log)
@@ -389,6 +393,7 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 		Updates:              update.NewChecker(version, ""),
 		WASMEngine:           wasmEngine,
 		WASMModules:          wasmModules,
+		ExtStore:             extStore,
 		Identity:             idSvc,
 		Auth:                 authSvc,
 		Pipeline:             pipe,

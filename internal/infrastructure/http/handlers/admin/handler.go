@@ -12,6 +12,7 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/auth"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/budget"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/extstore"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/guardrails"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/healthcheck"
 	base "github.com/bobbyunknown/flamegate/internal/infrastructure/http/handlers"
@@ -66,6 +67,7 @@ type Handler struct {
 	guardrails          *guardrails.Engine
 	wasmEngine          *wasm.Engine
 	wasmModules         map[string]*wasm.Module
+	extStore            *extstore.Installer
 	guardrailRepo       *persistence.GuardrailRepo
 	guardrailLogs       *persistence.GuardrailLogRepo
 	guardrailHub        *guardrails.LogHub
@@ -127,6 +129,7 @@ func New(d base.Deps) *Handler {
 		guardrails:          d.Guardrails,
 		wasmEngine:          d.WASMEngine,
 		wasmModules:         d.WASMModules,
+		extStore:            d.ExtStore,
 		guardrailRepo:       d.GuardrailRepo,
 		guardrailLogs:       d.GuardrailLogs,
 		guardrailHub:        d.GuardrailHub,

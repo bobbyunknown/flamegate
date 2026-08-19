@@ -234,6 +234,21 @@ type WASMConfig struct {
 	// ForceWasmAll forces all providers (including Tier-1) through WASM when true.
 	// Default: false. When true, even OpenAI/Anthropic/Gemini use WASM extensions.
 	ForceWasmAll bool `koanf:"force_wasm_all"`
+	// AllowUnsigned, saat true (default), mengizinkan ekstensi komunitas
+	// (github:/url:) diinstall dengan checksum SHA256 tanpa signature Ed25519.
+	// Saat false → mode ultra-strict: semua sumber remote wajib signature valid.
+	AllowUnsigned bool `koanf:"allow_unsigned"`
+	// ExtPublicKeys adalah daftar public key Ed25519 (hex, 32-byte seed/encoded)
+	// yang diizinkan menandatangani SHA256SUMS. Default bake-in kunci resmi
+	// FlameGate; operator boleh menambah/override lewat TOML/env.
+	ExtPublicKeys []string `koanf:"ext_public_keys"`
+	// StoreIndexURL adalah lokasi store/index.json default (flamegate-ext).
+	StoreIndexURL string `koanf:"store_index_url"`
+	// GithubTokenEnv adalah nama env var yang memuat GITHUB_TOKEN (opsional).
+	// Dibaca saat runtime; tidak pernah di-log.
+	GithubTokenEnv string `koanf:"github_token_env"`
+	// StoreCacheTTL adalah TTL hasil resolusi GitHub/index di cache in-memory.
+	StoreCacheTTL time.Duration `koanf:"store_cache_ttl"`
 }
 
 // defaultExtDir returns the default extension directory path.
@@ -307,6 +322,10 @@ func Default() Config {
 			DefaultTimeout:    60 * time.Second,
 			HotReloadInterval: 10 * time.Second,
 			ForceWasmAll:      false,
+			AllowUnsigned:     true, // tiered trust: komunitas boleh install tanpa signature
+			StoreIndexURL:     "https://raw.githubusercontent.com/bobbyunknown/flamegate-ext/main/store/index.json",
+			GithubTokenEnv:    "GITHUB_TOKEN",
+			StoreCacheTTL:     10 * time.Minute,
 		},
 	}
 }
@@ -338,6 +357,16 @@ func Load(filePath string) (Config, error) {
 			k = "security.allow_private_base_url"
 		}
 		if k == "wasm.allowed_hosts" {
+			parts := strings.Split(v, ",")
+			out := make([]string, 0, len(parts))
+			for _, p := range parts {
+				if s := strings.TrimSpace(p); s != "" {
+					out = append(out, s)
+				}
+			}
+			return k, out
+		}
+		if k == "wasm.ext_public_keys" {
 			parts := strings.Split(v, ",")
 			out := make([]string, 0, len(parts))
 			for _, p := range parts {

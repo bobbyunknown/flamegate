@@ -29,6 +29,7 @@ func (s *Handler) MountAdmin(r chi.Router) {
 	// Custom provider flows, extensions, CLI tools (raw Chi submounts)
 	s.MountCustomProviders(r)
 	s.MountExtensions(r)
+	s.MountStore(r)
 	s.MountCLITools(r)
 
 	// Branding endpoints (not yet migrated)

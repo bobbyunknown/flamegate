@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Plus, RefreshCw, Trash2, Power } from "lucide-react";
-import { api, type Extension } from "../lib/api";
+import { Package, Plus, RefreshCw, Trash2, Power, Download } from "lucide-react";
+import { api, type Extension, type StoreExtension } from "../lib/api";
 import { PageHeader } from "@/components/composite/page-header";
 import { useToast } from "../components/Toast";
 import { Card } from "@/components/ui/card";
@@ -18,7 +18,18 @@ export function ExtensionsPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const extensions = useQuery({ queryKey: ["extensions"], queryFn: () => api.listExtensions() });
+  const store = useQuery({ queryKey: ["extension-store"], queryFn: () => api.listStoreExtensions() });
   const [installOpen, setInstallOpen] = useState(false);
+
+  const srcInstall = useMutation({
+    mutationFn: (source: string) => api.installRemoteExtension(source),
+    onSuccess: (d) => {
+      toast.success("Installed", `${d.slug}@${d.version} (${d.trust})`);
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["extension-store"] });
+    },
+    onError: (e: Error) => toast.error("Install failed", e.message),
+  });
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["extensions"] });
@@ -132,6 +143,12 @@ export function ExtensionsPage() {
         </Card>
       )}
 
+      <Store
+        store={store}
+        onInstallSource={(src) => srcInstall.mutate(src)}
+        busy={srcInstall.isPending}
+      />
+
       <InstallModal
         open={installOpen}
         onClose={() => setInstallOpen(false)}
@@ -141,6 +158,92 @@ export function ExtensionsPage() {
         }}
       />
     </>
+  );
+}
+
+function Store({
+  store,
+  onInstallSource,
+  busy,
+}: {
+  store: { data?: { extensions: StoreExtension[] }; isLoading: boolean };
+  onInstallSource: (source: string) => void;
+  busy: boolean;
+}) {
+  const [url, setUrl] = useState("");
+  const items = store.data?.extensions ?? [];
+  const installBySlug = (slug: string) => onInstallSource(`store:${slug}`);
+  return (
+    <Card>
+      <CardHeader
+        title="Extension Store"
+        description="Browse the catalog and install verified extensions from GitHub releases."
+        action={<Badge variant="secondary">{items.length}</Badge>}
+      />
+      {store.isLoading ? (
+        <Spinner />
+      ) : (
+        <div className="flex flex-col gap-2 p-5">
+          <div className="flex items-center gap-2">
+            <input
+              className="flex h-9 w-full rounded border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              placeholder="Or install from a URL: https://…/ext.zip"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy || !url.trim()}
+              onClick={() => {
+                onInstallSource(`url:${url.trim()}`);
+                setUrl("");
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Install URL
+            </Button>
+          </div>
+          {!items.length ? (
+            <EmptyState
+              title="Store empty"
+              hint="No extensions in the catalog. Configure wasm.store_index_url to point at an index."
+            />
+          ) : (
+            <ul className="divide-y divide-border">
+              {items.map((it) => (
+                <li
+                  key={it.slug}
+                  className="flex flex-col gap-3 px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold">{it.name}</p>
+                      <Badge variant="secondary">store:{it.slug}</Badge>
+                      {it.version ? (
+                        <span className="font-mono text-xs text-muted-foreground">{it.version}</span>
+                      ) : null}
+                    </div>
+                    {it.description ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{it.description}</p>
+                    ) : null}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => installBySlug(it.slug)}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Install
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
 

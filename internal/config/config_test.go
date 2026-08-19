@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -137,6 +138,41 @@ func TestWASMConfigEnvOverrideAllowedHosts(t *testing.T) {
 	}
 	if cfg.WASM.AllowedHosts[1] != "api.anthropic.com" {
 		t.Fatalf("WASM.AllowedHosts[1] = %q, want api.anthropic.com", cfg.WASM.AllowedHosts[1])
+	}
+}
+
+func TestWASMConfigStoreDefaults(t *testing.T) {
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if !cfg.WASM.AllowUnsigned {
+		t.Fatalf("WASM.AllowUnsigned = %v, want true (tiered default)", cfg.WASM.AllowUnsigned)
+	}
+	if cfg.WASM.StoreIndexURL == "" || !strings.Contains(cfg.WASM.StoreIndexURL, "flamegate-ext") {
+		t.Fatalf("WASM.StoreIndexURL = %q, want flamegate-ext index", cfg.WASM.StoreIndexURL)
+	}
+	if cfg.WASM.GithubTokenEnv != "GITHUB_TOKEN" {
+		t.Fatalf("WASM.GithubTokenEnv = %q, want GITHUB_TOKEN", cfg.WASM.GithubTokenEnv)
+	}
+	if cfg.WASM.StoreCacheTTL <= 0 {
+		t.Fatalf("WASM.StoreCacheTTL = %v, want >0 (default 10m)", cfg.WASM.StoreCacheTTL)
+	}
+}
+
+func TestWASMConfigEnvOverrideExtPublicKeys(t *testing.T) {
+	unsetEnv(t, "FLAMEGATE_WASM__EXT_PUBLIC_KEYS")
+	t.Setenv("FLAMEGATE_WASM__EXT_PUBLIC_KEYS", "abc123,  def456  ,ghi789")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if len(cfg.WASM.ExtPublicKeys) != 3 {
+		t.Fatalf("WASM.ExtPublicKeys len = %d, want 3; got %v", len(cfg.WASM.ExtPublicKeys), cfg.WASM.ExtPublicKeys)
+	}
+	if cfg.WASM.ExtPublicKeys[1] != "def456" {
+		t.Fatalf("WASM.ExtPublicKeys[1] = %q, want def456", cfg.WASM.ExtPublicKeys[1])
 	}
 }
 

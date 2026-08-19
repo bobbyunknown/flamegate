@@ -377,6 +377,16 @@ type Extension struct {
 	CompiledAt   *time.Time `gorm:"autoCreateTime:false"`
 	InstalledAt  time.Time  `gorm:"autoCreateTime"`
 	UpdatedAt    time.Time  `gorm:"autoUpdateTime"`
+
+	// SourceURI menandai asal: "store:codex", "github:owner/repo@ref",
+	// "url:https://...", atau "" untuk lokal/upload. Dipakai update/reinstall.
+	SourceURI string `gorm:"type:text;index"`
+	// Checksum adalah SHA256 hex dari zip/binary yang diverifikasi saat install.
+	Checksum string `gorm:"type:varchar(64)"`
+	// InstalledRef = ref/tag/versi source yang terpasang (mis. "codex-v0.2.0").
+	InstalledRef string `gorm:"type:varchar(128)"`
+	// TrustLevel: official | community | local. Dasar badge Verified/Community.
+	TrustLevel string `gorm:"type:varchar(16);not null;default:local"`
 }
 
 // ExtensionModel is a model registered by an extension (discovered or custom).

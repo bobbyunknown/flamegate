@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -15,6 +16,7 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/app"
 	"github.com/bobbyunknown/flamegate/internal/config"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/extstore"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/wasm"
@@ -29,6 +31,7 @@ type extDeps struct {
 	engine  *wasm.Engine
 	vault   *vault.Vault
 	modules map[string]*wasm.Module
+	store   *extstore.Installer
 	log     *logrus.Logger
 }
 
@@ -95,6 +98,7 @@ func initExtensionCLI(configPath string) (*extDeps, error) {
 		engine:  engine,
 		vault:   v,
 		modules: modules,
+		store:   extstore.NewInstallerFromConfig(cfg.WASM, &http.Client{Timeout: 60 * time.Second}, engine, db.Extensions()),
 		log:     log,
 	}, nil
 }
@@ -120,6 +124,10 @@ func cmdExt(args []string) error {
 		return cmdExtEnable(rest)
 	case "disable":
 		return cmdExtDisable(rest)
+	case "update":
+		return cmdExtUpdate(rest)
+	case "store":
+		return cmdExtStore(rest)
 	case "help", "-h", "--help":
 		printExtUsage(os.Stdout)
 		return nil
@@ -134,18 +142,26 @@ func printExtUsage(w *os.File) {
 	fmt.Fprint(w, `Usage: flamegate ext <command> [flags]
 
 Commands:
-  install <path>     Install an extension from a directory containing schema.json and a .wasm file
+  install <source>   Install an extension from a directory (schema.json + .wasm),
+                     OR a remote source: store:<slug>, github:owner/repo@ref, or
+                     url:https://.../x.zip
   uninstall <slug>   Remove an installed extension
   list               List all installed extensions
   enable <slug>      Enable a disabled extension
   disable <slug>     Disable an active extension
+  update <slug>      Upgrade an installed extension to its latest release
+  store list         List the extension store catalog
+  store search <q>   Search the store catalog
+  help               Show this help
 
 Flags:
   -c, --config <path>  Path to a config file (optional)
 `)
 }
 
-// cmdExtInstall reads .wasm + schema.json from a local directory, validates, compiles, and persists.
+// cmdExtInstall installs from a local directory or a remote source
+// (store://, github:, url:). Local dirs use the legacy path; remote sources go
+// through the unified extstore pipeline.
 func cmdExtInstall(args []string) error {
 	fs := flag.NewFlagSet("ext install", flag.ContinueOnError)
 	configPath := resolveConfigFlag(fs)
@@ -153,10 +169,31 @@ func cmdExtInstall(args []string) error {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return fmt.Errorf("usage: flamegate ext install <path>")
+		return fmt.Errorf("usage: flamegate ext install <path|store:slug|github:o/r@ref|url:...>")
 	}
 
-	dir := fs.Arg(0)
+	source := fs.Arg(0)
+	// Route bare slugs (store) and github:/url: sources through the unified
+	// pipeline; only explicit local paths keep the legacy directory install.
+	spec, _ := extstore.ParseSource(source)
+	if spec.Kind != extstore.SourceLocal {
+		deps, err := initExtensionCLI(configVal(fs, configPath))
+		if err != nil {
+			return err
+		}
+		defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
+		defer deps.engine.Close()   //nolint:errcheck // best-effort close
+
+		res, err := deps.store.Install(context.Background(), source)
+		if err != nil {
+			return fmt.Errorf("ext: install remote: %w", err)
+		}
+		fmt.Printf("Extension %q installed successfully (version %s, trust %s, checksum %s)\n",
+			res.Slug, res.Version, res.Trust, res.Checksum)
+		return nil
+	}
+
+	dir := source
 	deps, err := initExtensionCLI(configVal(fs, configPath))
 	if err != nil {
 		return err
@@ -418,4 +455,123 @@ func mustJSONExt(v any) string {
 		return "{}"
 	}
 	return string(data)
+}
+
+// isRemoteSource reports whether an install argument is a store/github/url
+// source rather than a local directory path.
+func isRemoteSource(s string) bool {
+	if s == "" {
+		return false
+	}
+	return hasPrefixAny(s, []string{"store:", "github:", "url:", "https://", "http://"})
+}
+
+func hasPrefixAny(s string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// cmdExtUpdate upgrades an installed extension to its latest release.
+func cmdExtUpdate(args []string) error {
+	fs := flag.NewFlagSet("ext update", flag.ContinueOnError)
+	configPath := resolveConfigFlag(fs)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() < 1 {
+		return fmt.Errorf("usage: flamegate ext update <slug>")
+	}
+	slug := fs.Arg(0)
+
+	deps, err := initExtensionCLI(configVal(fs, configPath))
+	if err != nil {
+		return err
+	}
+	defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
+	defer deps.engine.Close()   //nolint:errcheck // best-effort close
+
+	ctx := context.Background()
+	ext, err := deps.db.Extensions().FindBySlug(ctx, slug)
+	if err != nil {
+		return fmt.Errorf("ext: extension %q not found", slug)
+	}
+	if ext.SourceURI == "" {
+		return fmt.Errorf("ext: extension %q was installed locally; update only works for store/github/url sources", slug)
+	}
+
+	res, err := deps.store.Install(ctx, ext.SourceURI)
+	if err != nil {
+		return fmt.Errorf("ext: update %q: %w", slug, err)
+	}
+	fmt.Printf("Extension %q updated to %s (trust %s, checksum %s)\n", res.Slug, res.Version, res.Trust, res.Checksum)
+	return nil
+}
+
+// cmdExtStore implements `store list` and `store search`.
+func cmdExtStore(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: flamegate ext store <list|search <q>>")
+	}
+	var storeList func(deps *extDeps) error
+	switch args[0] {
+	case "list":
+		storeList = storeListAll
+	case "search":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: flamegate ext store search <query>")
+		}
+		q := args[1]
+		storeList = func(deps *extDeps) error { return storeSearch(deps, q) }
+	default:
+		return fmt.Errorf("unknown store subcommand %q", args[0])
+	}
+
+	deps, err := initExtensionCLI("")
+	if err != nil {
+		return err
+	}
+	defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
+	defer deps.engine.Close()   //nolint:errcheck // best-effort close
+
+	return storeList(deps)
+}
+
+func storeListAll(deps *extDeps) error {
+	items, err := deps.store.ListStore(context.Background())
+	if err != nil {
+		return fmt.Errorf("ext: store list: %w", err)
+	}
+	if len(items) == 0 {
+		fmt.Println("No extensions in the store catalog.")
+		return nil
+	}
+	fmt.Printf("%-24s %-12s %s\n", "SLUG", "VERSION", "NAME")
+	fmt.Printf("%-24s %-12s %s\n", "----", "-------", "----")
+	for _, it := range items {
+		fmt.Printf("%-24s %-12s %s\n", it.Slug, it.Version, it.Name)
+	}
+	return nil
+}
+
+func storeSearch(deps *extDeps, q string) error {
+	items, err := deps.store.ListStore(context.Background())
+	if err != nil {
+		return fmt.Errorf("ext: store search: %w", err)
+	}
+	q = strings.ToLower(strings.TrimSpace(q))
+	found := 0
+	for _, it := range items {
+		if strings.Contains(strings.ToLower(it.Slug), q) || strings.Contains(strings.ToLower(it.Name), q) {
+			fmt.Printf("%-24s %-12s %s\n", it.Slug, it.Version, it.Name)
+			found++
+		}
+	}
+	if found == 0 {
+		fmt.Printf("No matches in store for %q.\n", q)
+	}
+	return nil
 }

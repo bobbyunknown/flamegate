@@ -4,6 +4,9 @@ export * from "./types";
 // Re-export request infrastructure
 export { APIError, BASE_URL } from "./client";
 
+// Re-export extension store types for consumers
+export type { StoreExtension } from "./extensions";
+
 // Re-export standalone functions (for direct use)
 export { connectUsageStream, connectGuardrailLogStream } from "./sse";
 export { fetchPortalBranding, fetchKeyUsage, fetchKeyUsageById } from "./portal";
@@ -18,6 +21,7 @@ import {
 import {
   listExtensions, getExtension, installExtension, uninstallExtension,
   enableExtension, disableExtension, syncExtensionModels, setExtensionAutoSyncModels,
+  listStoreExtensions, getStoreExtension, installRemoteExtension, updateRemoteExtension,
 } from "./extensions";
 import { listPlans, createPlan, updatePlan, deletePlan, listPlanKeys } from "./plans";
 import { listKeys, createKey, updateKey, deleteKey, deleteKeys } from "./keys";
@@ -75,6 +79,9 @@ export const api = {
   // Extensions (WASM providers)
   listExtensions, getExtension, installExtension, uninstallExtension,
   enableExtension, disableExtension, syncExtensionModels, setExtensionAutoSyncModels,
+
+  // Extensions Store (remote install)
+  listStoreExtensions, getStoreExtension, installRemoteExtension, updateRemoteExtension,
 
   // Plans
   listPlans, createPlan, updatePlan, deletePlan, listPlanKeys,

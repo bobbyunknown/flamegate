@@ -9,6 +9,7 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/auth"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/budget"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/extstore"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/guardrails"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/healthcheck"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/identity"
@@ -79,4 +80,8 @@ type Deps struct {
 
 	// Health
 	HealthChecker *healthcheck.Checker
+
+	// ExtStore runs the unified remote-extension install pipeline
+	// (store/github/url). Populated by app.Build.
+	ExtStore *extstore.Installer
 }
