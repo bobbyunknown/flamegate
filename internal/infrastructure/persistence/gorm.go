@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -13,13 +14,15 @@ import (
 
 // Open creates a GORM database connection.
 // For SQLite: dsn is the file path (e.g. "file:./data/flamegate.db").
-// For Postgres: dsn is the connection string.
+// For Postgres: dsn is the connection string (e.g. "postgres://user:pass@host:5432/dbname?sslmode=disable").
 func Open(driver, dsn string) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 
 	switch driver {
-	case "sqlite":
+	case "sqlite", "sqlite3":
 		dialector = sqlite.Open(dsn)
+	case "postgres", "postgresql", "pg":
+		dialector = postgres.Open(dsn)
 	default:
 		return nil, fmt.Errorf("unsupported database driver: %s", driver)
 	}

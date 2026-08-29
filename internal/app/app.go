@@ -99,6 +99,7 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 	if err != nil {
 		return nil, err
 	}
+	db.SetPool(cfg.Database.MaxOpenConns, cfg.Database.MaxIdleConns)
 	if err := db.Migrate(); err != nil {
 		return nil, fmt.Errorf("app: migrate: %w", err)
 	}

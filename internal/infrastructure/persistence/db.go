@@ -142,3 +142,16 @@ func (db *DB) Close() error {
 func (db *DB) BeginTx(ctx context.Context) *gorm.DB {
 	return db.gorm.WithContext(ctx).Begin()
 }
+
+// SetPool configures database connection pool parameters.
+func (db *DB) SetPool(maxOpen, maxIdle int) {
+	if sqlDB, err := db.gorm.DB(); err == nil {
+		if maxOpen > 0 {
+			sqlDB.SetMaxOpenConns(maxOpen)
+		}
+		if maxIdle > 0 {
+			sqlDB.SetMaxIdleConns(maxIdle)
+		}
+	}
+}
+
