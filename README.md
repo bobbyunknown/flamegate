@@ -42,7 +42,7 @@ flowchart TD
     Gateway --> POpenAI["OpenAI provider"]
     Gateway --> PAnthropic["Anthropic provider"]
     Gateway --> PGemini["Gemini provider"]
-    Gateway --> PExt["WASM extensions (wazero)<br/>Codex · Xiaomi MiMo"]
+    Gateway --> PExt["WASM extensions (wazero)"]
 ```
 
 The admin dashboard, REST API, and (by default) the proxy API share port `20180`. Set `server.proxy_port` to expose the `/v1` proxy API on a dedicated listener (e.g. `20181`).
@@ -144,7 +144,7 @@ Provider connectors that are not built in can be installed as WebAssembly module
 ./flamegate ext uninstall <slug>
 ```
 
-Official extensions live in the [`flamegate-ext`](./flamegate-ext) monorepo — e.g. `codex` (Go/TinyGo, OAuth2) and `xiaomi-mimo` (Rust). See [`flamegate-ext/README.md`](./flamegate-ext/README.md) to build new ones; any language targeting `wasm32` works.
+Official extensions live in the [`flamegate-ext`](./flamegate-ext) monorepo. See [`flamegate-ext/README.md`](./flamegate-ext/README.md) to build new ones; any language targeting `wasm32` works.
 
 ---
 
@@ -181,4 +181,4 @@ go vet ./...             # static analysis
 
 ## Related
 
-- [`flamegate-ext`](https://github.com/bobbyunknown/flamegate-ext) — official WASM extensions (`codex`, `xiaomi-mimo`)
+- [`flamegate-ext`](https://github.com/bobbyunknown/flamegate-ext) — official WASM extension repository
