@@ -4,9 +4,6 @@
 
 You get one OpenAI-compatible entry point for all your models, with failover, caching, and a real-time dashboard — without locking your clients to a single vendor.
 
-> [!WARNING]
-> **Origin & current status.** FlameGate is a fork of [KeiRouter](https://github.com/mydisha/keirouter), originally the `mydisha/keirouter/backend` module. It has been extensively refactored since — the architecture and tech stack changed (single Go module, layered `domain`/`application`/`infrastructure` layout, shadcn/ui + Tailwind dashboard) — so treat this as a work in progress rather than a steady release. Bugs from the migration may still exist, and some UI/UX remnants from the old codebase are still present, notably in parts of the frontend.
-
 ---
 
 ## Features
@@ -179,6 +176,7 @@ go vet ./...             # static analysis
 
 ---
 
-## Related
+## Related & Acknowledgements
 
 - [`flamegate-ext`](https://github.com/bobbyunknown/flamegate-ext) — official WASM extension repository
+- FlameGate was originally inspired by [KeiRouter](https://github.com/mydisha/keirouter). It has since been completely re-architected with an extension-first WASM plugin system, GORM persistence, Huma OpenAPI layer, and a modernized React dashboard.
