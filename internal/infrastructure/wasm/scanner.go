@@ -180,7 +180,7 @@ func IsValidSlug(slug string) bool {
 	return slugRegex.MatchString(slug)
 }
 
-// findWasmFile finds the first .wasm file in a directory.
+// findWasmFile finds the first .wasm file in a directory or its dist/ subfolder.
 func findWasmFile(dir string) (string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -189,6 +189,15 @@ func findWasmFile(dir string) (string, error) {
 	for _, e := range entries {
 		if !e.IsDir() && strings.HasSuffix(e.Name(), ".wasm") {
 			return filepath.Join(dir, e.Name()), nil
+		}
+	}
+	// Check dist/ subdirectory if present.
+	distDir := filepath.Join(dir, "dist")
+	if distEntries, err := os.ReadDir(distDir); err == nil {
+		for _, e := range distEntries {
+			if !e.IsDir() && strings.HasSuffix(e.Name(), ".wasm") {
+				return filepath.Join(distDir, e.Name()), nil
+			}
 		}
 	}
 	return "", fmt.Errorf("no .wasm file found in %s", dir)

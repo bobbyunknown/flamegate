@@ -232,6 +232,10 @@ func cmdExtInstall(args []string) error {
 	wasmPath := filepath.Join(dir, slug+".wasm")
 	wasmBytes, err := os.ReadFile(wasmPath)
 	if err != nil {
+		wasmPath = filepath.Join(dir, "dist", slug+".wasm")
+		wasmBytes, err = os.ReadFile(wasmPath)
+	}
+	if err != nil {
 		entries, readErr := os.ReadDir(dir)
 		if readErr != nil {
 			return fmt.Errorf("ext: read wasm from %s: %w", dir, err)
@@ -242,6 +246,20 @@ func cmdExtInstall(args []string) error {
 				wasmBytes, err = os.ReadFile(wasmPath)
 				if err == nil {
 					break
+				}
+			}
+		}
+		if err != nil {
+			// Check dist/ subfolder.
+			if distEntries, distErr := os.ReadDir(filepath.Join(dir, "dist")); distErr == nil {
+				for _, e := range distEntries {
+					if !e.IsDir() && filepath.Ext(e.Name()) == ".wasm" {
+						wasmPath = filepath.Join(dir, "dist", e.Name())
+						wasmBytes, err = os.ReadFile(wasmPath)
+						if err == nil {
+							break
+						}
+					}
 				}
 			}
 		}
