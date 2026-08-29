@@ -242,7 +242,7 @@ func (c *OpenAICompatible) Chat(ctx context.Context, req *core.ChatRequest, cred
 			}
 			return nil, decErr
 		}
-		defer respBody.Close() //nolint:errcheck // best-effort close
+		defer respBody.Close()
 		resp, perr := sc.ParseResponseFrom(respBody, req.Model)
 		if perr != nil {
 			return nil, &core.ProviderError{Kind: core.ErrUpstream, Provider: c.id, Model: req.Model, Message: perr.Error(), Cause: perr}
@@ -420,7 +420,7 @@ func (s *OpenAICompatibleModelSource) ListModels(ctx context.Context, creds core
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8*1024))
@@ -486,7 +486,7 @@ func (c *OpenAICompatible) Stream(ctx context.Context, req *core.ChatRequest, cr
 	out := make(chan core.StreamChunk, 16)
 	go func() {
 		defer close(out)
-		defer resp.Body.Close() //nolint:errcheck // best-effort close
+		defer resp.Body.Close()
 
 		ttft := newTTFTTracker(cfg)
 

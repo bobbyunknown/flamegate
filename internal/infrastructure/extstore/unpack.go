@@ -73,16 +73,16 @@ func extractFile(f *zip.File, outPath string) error {
 	if err != nil {
 		return fmt.Errorf("unpack: open %s: %w", f.Name, err)
 	}
-	defer rc.Close() //nolint:errcheck
+	defer rc.Close()
 
 	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, f.Mode().Perm())
 	if err != nil {
 		return fmt.Errorf("unpack: create %s: %w", outPath, err)
 	}
-	defer out.Close() //nolint:errcheck
+	defer out.Close()
 
 	if _, err := io.Copy(out, rc); err != nil {
-		os.Remove(outPath) //nolint:errcheck
+		os.Remove(outPath)
 		return fmt.Errorf("unpack: copy %s: %w", outPath, err)
 	}
 	return nil

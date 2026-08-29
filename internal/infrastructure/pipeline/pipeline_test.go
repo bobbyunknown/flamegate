@@ -111,7 +111,10 @@ func TestMergeUsage(t *testing.T) {
 func TestSafeBuffer_SmallStream(t *testing.T) {
 	var buf safeBuffer
 	data := []byte("hello world")
-	buf.Write(data) //nolint:errcheck // best-effort write
+	_, err := buf.Write(data)
+	if err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
 	got := buf.Bytes()
 	if string(got) != "hello world" {
 		t.Errorf("Bytes() = %q, want %q", got, "hello world")

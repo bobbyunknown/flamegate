@@ -42,11 +42,11 @@ func StateFile(dataDir string) string {
 func LoadState(dataDir string) *TunnelState {
 	data, err := os.ReadFile(StateFile(dataDir))
 	if err != nil {
-		return nil //nolint:nilerr // best-effort loader
+		return nil
 	}
 	var s TunnelState
 	if err := json.Unmarshal(data, &s); err != nil {
-		return nil //nolint:nilerr // best-effort loader
+		return nil
 	}
 	return &s
 }

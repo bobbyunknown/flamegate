@@ -48,7 +48,7 @@ func (s *Handler) adminInstallExtension(w http.ResponseWriter, r *http.Request) 
 		WriteError(w, http.StatusBadRequest, "missing 'schema' file field")
 		return
 	}
-	defer schemaFile.Close() //nolint:errcheck // best-effort close
+	defer schemaFile.Close()
 
 	schemaData, err := io.ReadAll(schemaFile)
 	if err != nil {
@@ -92,7 +92,7 @@ func (s *Handler) adminInstallExtension(w http.ResponseWriter, r *http.Request) 
 		WriteError(w, http.StatusBadRequest, "missing 'wasm' file field")
 		return
 	}
-	defer wasmFile.Close() //nolint:errcheck // best-effort close
+	defer wasmFile.Close()
 
 	wasmBytes, err := io.ReadAll(wasmFile)
 	if err != nil {
@@ -145,7 +145,7 @@ func (s *Handler) adminInstallExtension(w http.ResponseWriter, r *http.Request) 
 
 	if err := s.wasmEngine.Compile(ctx, slug, wasmBytes, extCfg); err != nil {
 		// Clean up files on compile failure.
-		_ = os.RemoveAll(slugDir) //nolint:errcheck // best-effort cleanup
+		_ = os.RemoveAll(slugDir)
 		WriteError(w, http.StatusBadRequest, "compile failed: "+err.Error())
 		return
 	}
@@ -165,6 +165,7 @@ func (s *Handler) adminInstallExtension(w http.ResponseWriter, r *http.Request) 
 		Entrypoints:       mustJSON(extSchema.Entrypoints),
 		Config:            mustJSON(map[string]any{"timeout": extSchema.Timeout, "max_instances": extSchema.MaxInstances}),
 		DefaultAccountKey: extSchema.DefaultAccountKey,
+		AuthKind:          firstAuthMode(extSchema.AuthModes),
 		AutoSyncModels:    true, // default on; override via form field auto_sync_models=false
 		CompiledAt:        new(time.Now()),
 		InstalledAt:       time.Now(),
@@ -176,8 +177,8 @@ func (s *Handler) adminInstallExtension(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := s.db.Extensions().Create(ctx, ext); err != nil {
-		_ = s.wasmEngine.Unload(slug) //nolint:errcheck // best-effort unload
-		_ = os.RemoveAll(slugDir)     //nolint:errcheck // best-effort cleanup
+		_ = s.wasmEngine.Unload(slug)
+		_ = os.RemoveAll(slugDir)
 		WriteError(w, http.StatusInternalServerError, "failed to save extension: "+err.Error())
 		return
 	}
@@ -191,7 +192,8 @@ func (s *Handler) adminInstallExtension(w http.ResponseWriter, r *http.Request) 
 		DisplayName:  extSchema.Name,
 		Alias:        slug,
 		Dialect:      core.DialectOpenAI,
-		AuthKind:     "api_key",
+		AuthKind:     ext.AuthKind,
+		AuthModes:    extSchema.AuthModes,
 		ServiceKinds: []core.ServiceKind{core.ServiceLLM},
 		Notice:       "WASM extension",
 	})
@@ -208,6 +210,17 @@ func (s *Handler) adminInstallExtension(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusCreated, extensionJSON(ext, synced))
+}
+// firstAuthMode returns the first supported auth mode (oauth preferred), or
+// api_key when the extension declares none.
+func firstAuthMode(modes []string) string {
+	for _, m := range modes {
+		switch m {
+		case "oauth", "api_key", "none":
+			return m
+		}
+	}
+	return "api_key"
 }
 
 // adminListExtensions returns all installed extensions.
@@ -263,7 +276,7 @@ func (s *Handler) adminUninstallExtension(w http.ResponseWriter, r *http.Request
 
 	// Unload from WASM engine (ignore if not compiled).
 	if s.wasmEngine != nil {
-		_ = s.wasmEngine.Unload(slug) //nolint:errcheck // best-effort unload
+		_ = s.wasmEngine.Unload(slug)
 	}
 
 	// Remove from module map.
@@ -288,7 +301,7 @@ func (s *Handler) adminUninstallExtension(w http.ResponseWriter, r *http.Request
 	if ext.WasmPath != "" {
 		dir := filepath.Dir(ext.WasmPath)
 		if dir != filepath.Clean(s.cfg.WASM.ExtDir) {
-			_ = os.RemoveAll(dir) //nolint:errcheck // best-effort cleanup
+			_ = os.RemoveAll(dir)
 		}
 	}
 
@@ -348,7 +361,7 @@ func (s *Handler) setExtensionState(w http.ResponseWriter, r *http.Request, stat
 			DisplayName:  ext.Name,
 			Alias:        slug,
 			Dialect:      core.DialectOpenAI,
-			AuthKind:     "api_key",
+			AuthKind:     ext.AuthKind,
 			ServiceKinds: []core.ServiceKind{core.ServiceLLM},
 			Notice:       "WASM extension",
 		})

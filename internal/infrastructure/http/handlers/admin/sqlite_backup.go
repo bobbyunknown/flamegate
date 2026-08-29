@@ -92,7 +92,7 @@ func (s *Handler) adminSQLiteRestore(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close() //nolint:errcheck // best-effort close
+	defer file.Close()
 
 	if header.Size <= 0 {
 		WriteError(w, http.StatusBadRequest, "uploaded file is empty")
@@ -194,7 +194,7 @@ func validateSQLiteFile(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close() //nolint:errcheck // best-effort close
+	defer db.Close()
 
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
@@ -219,7 +219,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close() //nolint:errcheck // best-effort close
+	defer srcFile.Close()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 		return err
@@ -229,7 +229,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close() //nolint:errcheck // best-effort close
+	defer dstFile.Close()
 
 	if _, err := io.Copy(dstFile, srcFile); err != nil {
 		return err

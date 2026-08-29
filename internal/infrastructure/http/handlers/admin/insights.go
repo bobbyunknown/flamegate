@@ -200,7 +200,7 @@ func testHTTPPool(proxyURL string, timeout time.Duration) proxyTestResult {
 	if err != nil {
 		return proxyTestResult{status: "error", lastError: err.Error(), elapsedMS: elapsed}
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		return proxyTestResult{status: "error", lastError: fmt.Sprintf("proxy returned HTTP %d", resp.StatusCode), elapsedMS: elapsed}
 	}
@@ -221,7 +221,7 @@ func testRelayPool(relayURL string, timeout time.Duration) proxyTestResult {
 	if err != nil {
 		return proxyTestResult{status: "error", lastError: err.Error(), elapsedMS: elapsed}
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		return proxyTestResult{status: "error", lastError: fmt.Sprintf("relay returned HTTP %d", resp.StatusCode), elapsedMS: elapsed}
 	}

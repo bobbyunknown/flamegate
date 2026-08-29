@@ -56,7 +56,7 @@ func buildAllocWASM(t *testing.T) []byte {
 	)
 
 	r := wazero.NewRuntime(context.Background())
-	defer r.Close(context.Background()) //nolint:errcheck // best-effort close
+	defer r.Close(context.Background())
 	wasi_snapshot_preview1.MustInstantiate(context.Background(), r)
 	_, err := r.CompileModule(context.Background(), binary)
 	require.NoError(t, err, "allocWASM must compile")
@@ -66,7 +66,7 @@ func buildAllocWASM(t *testing.T) []byte {
 
 func TestWriteGuestJSON_Success(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	wasmBin := buildAllocWASM(t)
 	require.NoError(t, e.Compile(context.Background(), "mem-ext", wasmBin, ExtensionConfig{
@@ -76,7 +76,7 @@ func TestWriteGuestJSON_Success(t *testing.T) {
 	env := &InvokeEnv{Ctx: context.Background(), Slug: "mem-ext"}
 	mod, err := e.Instantiate(context.Background(), "mem-ext", env)
 	require.NoError(t, err)
-	defer mod.Close(context.Background()) //nolint:errcheck // best-effort close
+	defer mod.Close(context.Background())
 
 	type payload struct {
 		Msg string `json:"msg"`
@@ -98,11 +98,10 @@ func TestWriteGuestJSON_MemoryLimit(t *testing.T) {
 	t.Skip("TODO: create null-alloc WASM fixture (compileMinimalWASM alloc returns 1024, not 0)")
 }
 
-//nolint:unused // placeholder for future null-alloc WASM fixture
 
 func TestWriteGuestBytes_Success(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	wasmBin := buildAllocWASM(t)
 	require.NoError(t, e.Compile(context.Background(), "mem-ext", wasmBin, ExtensionConfig{
@@ -112,7 +111,7 @@ func TestWriteGuestBytes_Success(t *testing.T) {
 	env := &InvokeEnv{Ctx: context.Background(), Slug: "mem-ext"}
 	mod, err := e.Instantiate(context.Background(), "mem-ext", env)
 	require.NoError(t, err)
-	defer mod.Close(context.Background()) //nolint:errcheck // best-effort close
+	defer mod.Close(context.Background())
 
 	data := []byte("raw bytes test")
 	ptr, size, err := writeGuestBytes(context.Background(), mod, data)
@@ -127,7 +126,7 @@ func TestWriteGuestBytes_Success(t *testing.T) {
 
 func TestDeallocGuest_Success(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	wasmBin := buildAllocWASM(t)
 	require.NoError(t, e.Compile(context.Background(), "mem-ext", wasmBin, ExtensionConfig{
@@ -137,7 +136,7 @@ func TestDeallocGuest_Success(t *testing.T) {
 	env := &InvokeEnv{Ctx: context.Background(), Slug: "mem-ext"}
 	mod, err := e.Instantiate(context.Background(), "mem-ext", env)
 	require.NoError(t, err)
-	defer mod.Close(context.Background()) //nolint:errcheck // best-effort close
+	defer mod.Close(context.Background())
 
 	ptr, size, err := writeGuestBytes(context.Background(), mod, []byte("dealloc test"))
 	require.NoError(t, err)

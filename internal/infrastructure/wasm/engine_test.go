@@ -3,6 +3,7 @@ package wasm
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 
 	"github.com/bobbyunknown/flamegate/internal/config"
+	core "github.com/bobbyunknown/flamegate/internal/domain/provider"
 )
 
 func testEngineConfig() config.WASMConfig {
@@ -72,7 +74,7 @@ func validMinimalWASM(t *testing.T) []byte {
 	)
 
 	r := wazero.NewRuntime(context.Background())
-	defer r.Close(context.Background()) //nolint:errcheck // best-effort close
+	defer r.Close(context.Background())
 	wasi_snapshot_preview1.MustInstantiate(context.Background(), r)
 	_, err := r.CompileModule(context.Background(), binary)
 	require.NoError(t, err, "generated WASM must compile")
@@ -132,7 +134,7 @@ func concatBytes(slices ...[]byte) []byte {
 
 func TestEngine_CompileValid(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	err := e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug:    "test-ext",
@@ -147,7 +149,7 @@ func TestEngine_CompileValid(t *testing.T) {
 
 func TestEngine_CompileInvalid(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	err := e.Compile(context.Background(), "bad-ext", []byte{0x00, 0x01, 0x02}, ExtensionConfig{
 		Slug: "bad-ext",
@@ -158,7 +160,7 @@ func TestEngine_CompileInvalid(t *testing.T) {
 
 func TestEngine_GetMissing(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod, ok := e.Get("nonexistent")
 	assert.False(t, ok)
@@ -167,7 +169,7 @@ func TestEngine_GetMissing(t *testing.T) {
 
 func TestEngine_Unload(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug: "test-ext",
@@ -182,7 +184,7 @@ func TestEngine_Unload(t *testing.T) {
 
 func TestEngine_UnloadMissing(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	err := e.Unload("nonexistent")
 	assert.Error(t, err)
@@ -191,7 +193,7 @@ func TestEngine_UnloadMissing(t *testing.T) {
 
 func TestEngine_HasExtensions(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	assert.False(t, e.HasExtensions())
 
@@ -217,7 +219,7 @@ func TestEngine_Close(t *testing.T) {
 
 func TestEngine_GetConnector(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug: "test-ext",
@@ -231,7 +233,7 @@ func TestEngine_GetConnector(t *testing.T) {
 
 func TestEngine_GetConnectorMissing(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	conn, ok := e.GetConnector("nonexistent")
 	assert.False(t, ok)
@@ -240,7 +242,7 @@ func TestEngine_GetConnectorMissing(t *testing.T) {
 
 func TestEngine_Slugs(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	assert.Empty(t, e.Slugs())
 
@@ -254,7 +256,7 @@ func TestEngine_Slugs(t *testing.T) {
 
 func TestEngine_GetConfig(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	cfg := ExtensionConfig{Slug: "test-ext", Timeout: 30 * time.Second}
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), cfg))
@@ -263,6 +265,31 @@ func TestEngine_GetConfig(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "test-ext", got.Slug)
 	assert.Equal(t, 30*time.Second, got.Timeout)
+}
+
+func TestEngine_ListModels_Cline(t *testing.T) {
+	e := newEngineForTest(t)
+	defer e.Close()
+
+	wasmBytes, err := os.ReadFile("../../../flamegate-ext/cline/dist/cline.wasm")
+	require.NoError(t, err)
+
+	cfg := ExtensionConfig{
+		Slug:        "cline",
+		Timeout:     30 * time.Second,
+		Entrypoints: map[string]string{"chat": "invoke", "models": "list_models"},
+	}
+	require.NoError(t, e.Compile(context.Background(), "cline", wasmBytes, cfg))
+
+	cm, ok := e.modules["cline"]
+	require.True(t, ok)
+	t.Logf("Exported functions: %+v", cm.compiled.ExportedFunctions())
+	t.Logf("hasExport 'list_models': %v", hasExport(cm.compiled, "list_models"))
+
+	models, err := e.ListModels(context.Background(), "cline", core.Credentials{})
+	require.NoError(t, err)
+	t.Logf("models returned: %+v", models)
+	require.NotEmpty(t, models)
 }
 
 // Verify wazero import is used.

@@ -114,7 +114,6 @@ func LoginRateLimitMiddleware() func(huma.Context, func(huma.Context)) {
 func writeHumaError(ctx huma.Context, status int, detail string) {
 	ctx.SetStatus(status)
 	ctx.SetHeader("Content-Type", "application/problem+json")
-	//nolint:errcheck // best-effort write to HTTP response; connection may be closed
 	_, _ = ctx.BodyWriter().Write([]byte(`{"title":"` + http.StatusText(status) + `","status":` + itoa(status) + `,"detail":"` + detail + `"}`))
 }
 

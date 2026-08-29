@@ -238,7 +238,7 @@ func parseRespContent(raw json.RawMessage) []core.ContentPart {
 	}
 	var parts []respContentPart
 	if err := json.Unmarshal(raw, &parts); err != nil {
-		return nil //nolint:nilerr // best-effort parser
+		return nil
 	}
 	var out []core.ContentPart
 	for _, p := range parts {

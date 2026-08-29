@@ -112,9 +112,12 @@ func (s *Server) registerAdminAPI(api huma.API) {
 
 	huma.Register(api, adminOp("listProviders", "GET", "/providers", "List all providers", "Providers", adminMw), s.adminHandler.HumaListProviders)
 	huma.Register(api, adminOp("getProviderModels", "GET", "/providers/{id}/models", "Get models for a provider (optional ?refresh=true to import)", "Providers", adminMw), s.adminHandler.HumaProviderModels)
-	clearProviderModelsOp := adminOp("clearProviderDiscoveredModels", "DELETE", "/providers/{id}/models", "Clear discovered/imported models for a provider (keeps static + custom)", "Providers", adminMw)
+	clearProviderModelsOp := adminOp("clearProviderDiscoveredModels", "DELETE", "/providers/{id}/models", "Clear or delete discovered/imported models for a provider (keeps static + custom)", "Providers", adminMw)
 	clearProviderModelsOp.DefaultStatus = 200
 	huma.Register(api, clearProviderModelsOp, s.adminHandler.HumaClearProviderDiscoveredModels)
+	bulkDeleteProviderModelsOp := adminOp("bulkDeleteProviderModels", "POST", "/providers/{id}/models/bulk-delete", "Bulk delete selected models for a provider", "Providers", adminMw)
+	bulkDeleteProviderModelsOp.DefaultStatus = 200
+	huma.Register(api, bulkDeleteProviderModelsOp, s.adminHandler.HumaBulkDeleteProviderModels)
 	huma.Register(api, adminOp("getProviderRouting", "GET", "/providers/{id}/routing", "Get provider routing settings", "Providers", adminMw), s.adminHandler.HumaGetProviderRouting)
 	updateProviderRoutingOp := adminOp("updateProviderRouting", "POST", "/providers/{id}/routing", "Update provider routing settings", "Providers", adminMw)
 	updateProviderRoutingOp.DefaultStatus = 200

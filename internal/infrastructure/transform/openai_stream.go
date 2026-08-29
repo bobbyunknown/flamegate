@@ -195,14 +195,14 @@ func normalizeNestedOpenAIToolObject(raw json.RawMessage) json.RawMessage {
 	}
 	var nested map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &nested); err != nil || len(nested) == 0 {
-		return nil //nolint:nilerr // best-effort parser
+		return nil
 	}
 	if deeper := unwrapOpenAIToolArgumentObject(nested); deeper != nil {
 		return deeper
 	}
 	out, err := json.Marshal(nested)
 	if err != nil {
-		return nil //nolint:nilerr // best-effort parser
+		return nil
 	}
 	return out
 }

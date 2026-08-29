@@ -36,7 +36,7 @@ func TestHotReloader_FileHash(t *testing.T) {
 
 func TestHotReloader_RecordRemoveHash(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	modules := map[string]*Module{"test-ext": mod}
@@ -62,7 +62,7 @@ func TestHotReloader_SkipsDisabled(t *testing.T) {
 	require.NoError(t, os.WriteFile(wasmPath, compileMinimalWASM(t), 0644))
 
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	mod.SetState(StateDisabled) // DISABLED
@@ -94,7 +94,7 @@ func TestHotReloader_SkipsUpdating(t *testing.T) {
 	require.NoError(t, os.WriteFile(wasmPath, compileMinimalWASM(t), 0644))
 
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	mod.SetState(StateUpdating) // UPDATING
@@ -122,7 +122,7 @@ func TestHotReloader_ReloadOnHashChange(t *testing.T) {
 	require.NoError(t, os.WriteFile(wasmPath, compileMinimalWASM(t), 0644))
 
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug: "test-ext",
@@ -156,7 +156,7 @@ func TestHotReloader_NoReloadWhenHashUnchanged(t *testing.T) {
 	require.NoError(t, os.WriteFile(wasmPath, compileMinimalWASM(t), 0644))
 
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	modules := map[string]*Module{"test-ext": mod}
@@ -174,7 +174,7 @@ func TestHotReloader_NoReloadWhenHashUnchanged(t *testing.T) {
 
 func TestHotReloader_RunStopsOnContext(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	log := logrus.WithField("test", true)
 	hr := NewHotReloader(e, "/tmp", nil, 10*time.Millisecond, log)

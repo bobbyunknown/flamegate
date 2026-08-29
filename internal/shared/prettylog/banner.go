@@ -52,20 +52,20 @@ func PrintBanner(w io.Writer, cfg BannerConfig) {
 
 	hLine := strings.Repeat("─", innerW)
 
-	fmt.Fprintln(w) //nolint:errcheck // best-effort write
+	fmt.Fprintln(w)
 	for _, line := range strings.Split(logo, "\n") {
-		fmt.Fprintf(w, "  %s%s%s\n", ansiOrange, line, ansiReset) //nolint:errcheck // best-effort write
+		fmt.Fprintf(w, "  %s%s%s\n", ansiOrange, line, ansiReset)
 	}
-	fmt.Fprintln(w) //nolint:errcheck // best-effort write
+	fmt.Fprintln(w)
 
-	fmt.Fprintf(w, "  %s╭%s╮%s\n", ansiOrange, hLine, ansiReset) //nolint:errcheck // best-effort write
+	fmt.Fprintf(w, "  %s╭%s╮%s\n", ansiOrange, hLine, ansiReset)
 	boxRow(w, innerW, "FlameGate "+cfg.Version, false)
 	boxRow(w, innerW, "", false)
 	for _, r := range rows {
 		boxRow(w, innerW, r.label+"  "+r.value, true)
 	}
-	fmt.Fprintf(w, "  %s╰%s╯%s\n", ansiOrange, hLine, ansiReset) //nolint:errcheck // best-effort write
-	fmt.Fprintln(w) //nolint:errcheck // best-effort write
+	fmt.Fprintf(w, "  %s╰%s╯%s\n", ansiOrange, hLine, ansiReset)
+	fmt.Fprintln(w)
 }
 
 func boxRow(w io.Writer, innerW int, content string, bold bool) {
@@ -75,9 +75,9 @@ func boxRow(w io.Writer, innerW int, content string, bold bool) {
 	}
 	if bold {
 		_, _ = fmt.Fprintf(w, "  %s│ %s%s%s%s%s│%s\n",
-			ansiOrange, ansiBold, content, ansiReset, ansiOrange, strings.Repeat(" ", pad), ansiReset) //nolint:errcheck // best-effort write
+			ansiOrange, ansiBold, content, ansiReset, ansiOrange, strings.Repeat(" ", pad), ansiReset)
 	} else {
-		_, _ = fmt.Fprintf(w, "  %s│ %-*s│%s\n", ansiOrange, innerW-1, content, ansiReset) //nolint:errcheck // best-effort write
+		_, _ = fmt.Fprintf(w, "  %s│ %-*s│%s\n", ansiOrange, innerW-1, content, ansiReset)
 	}
 }
 

@@ -40,10 +40,23 @@ type httpPostErrorResponse struct {
 	Code  string `json:"code"`
 }
 
+
 // credResponse is returned to guest from get_credentials.
 type credResponse struct {
 	APIKey  string `json:"api_key"`
 	BaseURL string `json:"base_url,omitempty"`
+}
+
+// credResponseFrom maps resolved credentials to the guest-facing shape.
+// OAuth accounts carry their token in AccessToken; the guest ABI only exposes
+// api_key, so forward AccessToken there when no APIKey is set. Mirrors the
+// native connectors (AccessToken preferred, APIKey fallback).
+func credResponseFrom(creds core.Credentials) credResponse {
+	token := creds.AccessToken
+	if token == "" {
+		token = creds.APIKey
+	}
+	return credResponse{APIKey: token, BaseURL: creds.BaseURL}
 }
 
 // hostHTTPPost implements the http_post host function.
@@ -122,7 +135,7 @@ func hostHTTPRequest(client *http.Client, method string) func(context.Context, a
 		if err != nil {
 			return writeHostError(ctx, mod, "HOST_HTTP_ERROR", err.Error())
 		}
-		defer resp.Body.Close() //nolint:errcheck // best-effort close
+		defer resp.Body.Close()
 
 		respBody, err := io.ReadAll(io.LimitReader(resp.Body, 16*1024*1024))
 		if err != nil {
@@ -145,10 +158,7 @@ func hostGetCredentials(cfg *HostFuncConfig) func(context.Context, api.Module, u
 	return func(ctx context.Context, mod api.Module, keyPtr, keyLen uint32) uint32 {
 		// Fast path: pipeline already resolved + decrypted credentials.
 		if cfg.Creds.APIKey != "" || cfg.Creds.AccessToken != "" {
-			cred := credResponse{
-				APIKey:  cfg.Creds.APIKey,
-				BaseURL: cfg.Creds.BaseURL,
-			}
+			cred := credResponseFrom(cfg.Creds)
 			ptr, _, writeErr := writeGuestJSON(ctx, mod, cred)
 			if writeErr != nil {
 				return writeHostError(ctx, mod, "HOST_MEMORY_ERROR", writeErr.Error())
@@ -187,10 +197,7 @@ func hostGetCredentials(cfg *HostFuncConfig) func(context.Context, api.Module, u
 			return writeHostError(ctx, mod, "DECRYPT_FAILED", "failed to decrypt credentials")
 		}
 
-		cred := credResponse{
-			APIKey:  vaultCreds.APIKey,
-			BaseURL: vaultCreds.BaseURL,
-		}
+		cred := credResponseFrom(vaultCreds)
 
 		ptr, _, writeErr := writeGuestJSON(ctx, mod, cred)
 		if writeErr != nil {

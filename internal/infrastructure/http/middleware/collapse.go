@@ -112,5 +112,5 @@ func extractToken(r *http.Request) string {
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_, _ = w.Write([]byte(`{"error":"` + msg + `"}`)) //nolint:errcheck // best-effort write
+	_, _ = w.Write([]byte(`{"error":"` + msg + `"}`))
 }

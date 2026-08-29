@@ -130,7 +130,7 @@ func installMacPkg(sudoPassword string, log func(string)) error {
 	if err := downloadToFile(pkgURL, pkgPath, log); err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
-	defer os.Remove(pkgPath) //nolint:errcheck // best-effort cleanup
+	defer os.Remove(pkgPath)
 
 	log("Installing package...")
 	cmd := exec.Command("sudo", "-S", "installer", "-pkg", pkgPath, "-target", "/")
@@ -149,8 +149,8 @@ func installMacPkg(sudoPassword string, log func(string)) error {
 		}
 	}()
 
-	fmt.Fprintf(stdin, "%s\n", sudoPassword) //nolint:errcheck // best-effort
-	stdin.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort
+	fmt.Fprintf(stdin, "%s\n", sudoPassword)
+	stdin.Close()
 
 	if err := cmd.Wait(); err != nil {
 		errOut := stderrBuf.String()
@@ -179,7 +179,7 @@ func installLinux(sudoPassword string, log func(string)) error {
 	if err != nil {
 		return fmt.Errorf("download install script: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 	scriptContent, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read install script: %w", err)
@@ -190,7 +190,7 @@ func installLinux(sudoPassword string, log func(string)) error {
 	if err := os.WriteFile(tmpScript, scriptContent, 0o700); err != nil {
 		return fmt.Errorf("write install script: %w", err)
 	}
-	defer os.Remove(tmpScript) //nolint:errcheck // best-effort cleanup
+	defer os.Remove(tmpScript)
 
 	log("Running install script...")
 	cmd := exec.Command("sudo", "-S", "sh", tmpScript)
@@ -209,8 +209,8 @@ func installLinux(sudoPassword string, log func(string)) error {
 		}
 	}()
 
-	fmt.Fprintf(stdin, "%s\n", sudoPassword) //nolint:errcheck // best-effort
-	stdin.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort
+	fmt.Fprintf(stdin, "%s\n", sudoPassword)
+	stdin.Close()
 
 	if err := cmd.Wait(); err != nil {
 		errOut := stderrBuf.String()
@@ -230,7 +230,7 @@ func installWindows(log func(string)) error {
 	if err := downloadToFile(msiURL, msiPath, log); err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
-	defer os.Remove(msiPath) //nolint:errcheck // best-effort cleanup
+	defer os.Remove(msiPath)
 
 	log("Installing Tailscale (UAC prompt may appear)...")
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command",
@@ -266,7 +266,7 @@ func downloadToFile(url, path string, log func(string)) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download failed: status %d", resp.StatusCode)
 	}
@@ -274,7 +274,7 @@ func downloadToFile(url, path string, log func(string)) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck // best-effort close
+	defer f.Close()
 	total := resp.ContentLength
 	var received int64
 	buf := make([]byte, 32*1024)
@@ -339,8 +339,8 @@ func ValidateSudoPassword(sudoPassword string) error {
 		return fmt.Errorf("sudo not available: %w", err)
 	}
 
-	fmt.Fprintf(stdin, "%s\n", sudoPassword) //nolint:errcheck // best-effort
-	stdin.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort
+	fmt.Fprintf(stdin, "%s\n", sudoPassword)
+	stdin.Close()
 
 	var stderrBuf strings.Builder
 	go func() {
@@ -364,7 +364,7 @@ func ValidateSudoPassword(sudoPassword string) error {
 // files behind. Best-effort, non-fatal.
 func EnsureUserOwnedDir(dir string) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		os.MkdirAll(dir, 0o700) //nolint:errcheck // best-effort
+		os.MkdirAll(dir, 0o700)
 		return
 	}
 	// Try chown (works if already owned by user).
@@ -374,6 +374,6 @@ func EnsureUserOwnedDir(dir string) {
 	if err := cmd.Run(); err != nil {
 		// Try passwordless sudo.
 		cmd = exec.Command("sudo", "-n", "chown", "-R", fmt.Sprintf("%d:%d", uid, gid), dir)
-		cmd.Run() //nolint:errcheck // best-effort
+		cmd.Run()
 	}
 }

@@ -32,9 +32,9 @@ func TestCompress_RetriesTransientThenSucceeds(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"messages":[{"role":"user","content":"hi"}],"stats":{"tokens_before":10,"tokens_after":2,"tokens_saved":8}}`)) //nolint:errcheck // best-effort write
+		_, _ = w.Write([]byte(`{"messages":[{"role":"user","content":"hi"}],"stats":{"tokens_before":10,"tokens_after":2,"tokens_saved":8}}`))
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	req := testRequest()
 	stats := New(nil).Compress(context.Background(), req, Config{Enabled: true, URL: srv.URL, Timeout: 2 * time.Second})
@@ -54,7 +54,7 @@ func TestCompress_PersistentTransientFailsOpen(t *testing.T) {
 		atomic.AddInt32(&calls, 1)
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	req := testRequest()
 	before := req.Messages[0].Content[0].Text
@@ -72,9 +72,9 @@ func TestCompress_ConcurrencyCapSkips(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&calls, 1)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"messages":[{"role":"user","content":"hi"}]}`)) //nolint:errcheck // best-effort write
+		_, _ = w.Write([]byte(`{"messages":[{"role":"user","content":"hi"}]}`))
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := New(nil)
 	c.sem = make(chan struct{}, 1)
@@ -94,7 +94,7 @@ func TestCompress_NonRetryableStatusNoRetry(t *testing.T) {
 		atomic.AddInt32(&calls, 1)
 		w.WriteHeader(http.StatusBadRequest)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	req := testRequest()
 	stats := New(nil).Compress(context.Background(), req, Config{Enabled: true, URL: srv.URL, Timeout: 2 * time.Second})

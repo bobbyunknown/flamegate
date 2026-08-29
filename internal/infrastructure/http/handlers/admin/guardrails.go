@@ -249,7 +249,7 @@ func (s *Handler) adminListGuardrailLogs(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	q := r.URL.Query()
-	f := schema.GuardrailLogFilter{ // nolint:exhaustruct // optional fields
+	f := schema.GuardrailLogFilter{
 		APIKeyID: q.Get("api_key_id"),
 		Detector: q.Get("detector"),
 		Action:   q.Get("action"),

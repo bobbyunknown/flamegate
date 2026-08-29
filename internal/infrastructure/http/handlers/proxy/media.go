@@ -175,7 +175,7 @@ func (s *Handler) HandleAudioTranscription(w http.ResponseWriter, r *http.Reques
 		WriteError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close() //nolint:errcheck // best-effort close
+	defer file.Close()
 	audio, err := io.ReadAll(io.LimitReader(file, maxBodyBytes))
 	if err != nil {
 		WriteError(w, http.StatusBadRequest, "failed to read audio file")
@@ -235,7 +235,7 @@ func (s *Handler) HandleAudioSpeech(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", resp.ContentType)
 	w.Header().Set("X-FlameGate-Provider", provider)
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(resp.Audio) //nolint:errcheck // best-effort write
+	_, _ = w.Write(resp.Audio)
 }
 
 // ---- Web search -------------------------------------------------------------

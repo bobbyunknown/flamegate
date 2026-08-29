@@ -153,7 +153,8 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 				DisplayName:  display,
 				Alias:        ext.Slug,
 				Dialect:      core.DialectOpenAI,
-				AuthKind:     "api_key",
+				AuthKind:     firstAuthModeOf(ext.Schema.AuthModes),
+				AuthModes:    ext.Schema.AuthModes,
 				ServiceKinds: []core.ServiceKind{core.ServiceLLM},
 				Notice:       "WASM extension",
 			})
@@ -807,4 +808,15 @@ func (a *App) runCooldownSweeper(ctx context.Context) {
 // Static model_prices.go was purged; meter records CostMicros=0 until pricing returns.
 func buildModelPrices() map[string]meter.Price {
 	return map[string]meter.Price{}
+}
+// firstAuthModeOf returns the first declared auth mode (oauth preferred), or
+// api_key as the conservative default. Mirrors admin.firstAuthMode.
+func firstAuthModeOf(modes []string) string {
+	for _, m := range modes {
+		switch m {
+		case "oauth", "api_key", "none":
+			return m
+		}
+	}
+	return "api_key"
 }

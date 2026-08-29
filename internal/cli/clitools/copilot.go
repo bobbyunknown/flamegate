@@ -24,7 +24,7 @@ func (t *CopilotTool) DetectStatus(homeDir string) (bool, bool, string, error) {
 	var entries []map[string]any
 	if err := readJSON(path, &entries); err != nil {
 		// Might be an object, not array — still installed.
-		return true, false, path, nil //nolint:nilerr // file format unknown, treat as installed
+		return true, false, path, nil
 	}
 	for _, e := range entries {
 		if name, _ := e["name"].(string); name == "FlameGate" {

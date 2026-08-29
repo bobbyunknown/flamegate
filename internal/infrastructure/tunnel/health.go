@@ -67,7 +67,7 @@ func ProbeURLAlive(rawURL string, cfg HealthConfig) bool {
 	if err != nil {
 		return false
 	}
-	resp.Body.Close() //nolint:errcheck // best-effort close
+	resp.Body.Close()
 	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
@@ -97,6 +97,6 @@ func CheckInternet() bool {
 	if err != nil {
 		return false
 	}
-	conn.Close() //nolint:errcheck // best-effort close
+	conn.Close()
 	return true
 }

@@ -72,7 +72,7 @@ func (e *openaiEngine) Score(ctx context.Context, text string, allowed map[strin
 	if err != nil {
 		return nil, fmt.Errorf("toxicity/openai: http: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {

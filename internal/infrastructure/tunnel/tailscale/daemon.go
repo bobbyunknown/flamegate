@@ -90,9 +90,9 @@ func StartDaemon(dataDir string, sudoPassword string, log *logrus.Logger) error 
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("start tailscaled (TUN): %w", err)
 		}
-	fmt.Fprintf(stdin, "%s\n", sudoPassword) //nolint:errcheck // best-effort write
-		stdin.Close() //nolint:errcheck // best-effort close
-		cmd.Run() //nolint:errcheck // best-effort
+	fmt.Fprintf(stdin, "%s\n", sudoPassword)
+		stdin.Close()
+		cmd.Run()
 	} else {
 		cmd := exec.Command(tailscaledBin, daemonArgs...)
 		cmd.Dir = os.TempDir()
@@ -100,7 +100,7 @@ func StartDaemon(dataDir string, sudoPassword string, log *logrus.Logger) error 
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("start tailscaled: %w", err)
 		}
-		go cmd.Wait() //nolint:errcheck // best-effort
+		go cmd.Wait()
 	}
 
 	// Wait for socket to be ready.
@@ -111,7 +111,7 @@ func StartDaemon(dataDir string, sudoPassword string, log *logrus.Logger) error 
 
 func startDaemonWindows(log *logrus.Logger) error {
 	// Windows: tailscale runs as a Windows Service.
-	exec.Command("net", "start", "Tailscale").Run() //nolint:errcheck // best-effort
+	exec.Command("net", "start", "Tailscale").Run()
 
 	bin := FindBinary("")
 	if bin == "" {
@@ -137,12 +137,12 @@ func startDaemonWindows(log *logrus.Logger) error {
 func StopDaemon(dataDir string, sudoPassword string) {
 	socket := TailscaleSocket(dataDir)
 	killDaemon(socket, sudoPassword)
-	os.Remove(socket) //nolint:errcheck // best-effort cleanup
+	os.Remove(socket)
 }
 
 func killDaemon(socket string, sudoPassword string) {
 	// Try non-sudo first.
-	exec.Command("pkill", "-9", "-f", fmt.Sprintf("tailscaled.*%s", socket)).Run() //nolint:errcheck // best-effort
+	exec.Command("pkill", "-9", "-f", fmt.Sprintf("tailscaled.*%s", socket)).Run()
 
 	// Check if still alive.
 	if err := exec.Command("pgrep", "-f", fmt.Sprintf("tailscaled.*%s", socket)).Run(); err != nil {
@@ -154,12 +154,12 @@ func killDaemon(socket string, sudoPassword string) {
 		cmd := exec.Command("sudo", "-S", "pkill", "-9", "-f", fmt.Sprintf("tailscaled.*%s", socket))
 		stdin, _ := cmd.StdinPipe()
 		if err := cmd.Start(); err == nil {
-		fmt.Fprintf(stdin, "%s\n", sudoPassword) //nolint:errcheck // best-effort write
-			stdin.Close() //nolint:errcheck // best-effort close
-		cmd.Wait() //nolint:errcheck // best-effort
+		fmt.Fprintf(stdin, "%s\n", sudoPassword)
+			stdin.Close()
+		cmd.Wait()
 		}
 	} else {
-		exec.Command("sudo", "-n", "pkill", "-9", "-f", fmt.Sprintf("tailscaled.*%s", socket)).Run() //nolint:errcheck // best-effort
+		exec.Command("sudo", "-n", "pkill", "-9", "-f", fmt.Sprintf("tailscaled.*%s", socket)).Run()
 	}
 }
 
@@ -168,7 +168,7 @@ func killDaemon(socket string, sudoPassword string) {
 func isDaemonTunMode(socket string) *bool {
 	out, err := exec.Command("pgrep", "-af", fmt.Sprintf("tailscaled.*%s", socket)).Output()
 	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
-		return nil //nolint:nilerr // best-effort daemon check
+		return nil
 	}
 	isUserspace := strings.Contains(string(out), "--tun=userspace-networking")
 	tun := !isUserspace

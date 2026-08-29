@@ -278,6 +278,7 @@ type ExtensionModelRepository interface {
 	Create(ctx context.Context, m schema.ExtensionModel) error
 	Update(ctx context.Context, m schema.ExtensionModel) error
 	Delete(ctx context.Context, id string) error
+	DeleteBySlug(ctx context.Context, extensionID, slug string) error
 	DeleteBySource(ctx context.Context, extensionID, source string) error
 	DeleteByExtension(ctx context.Context, extensionID string) error
 }

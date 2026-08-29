@@ -150,9 +150,11 @@ func (s *Handler) HumaProviderModels(ctx context.Context, input *ProviderModelsI
 	}
 
 	customByID := map[string]schema.CustomModel{}
-	if cms, cerr := s.db.CustomProviders().ListModelsByProvider(ctx, providerID); cerr == nil {
-		for _, cm := range cms {
-			customByID[cm.ModelID] = cm
+	if s.db != nil {
+		if cms, cerr := s.db.CustomProviders().ListModelsByProvider(ctx, providerID); cerr == nil {
+			for _, cm := range cms {
+				customByID[cm.ModelID] = cm
+			}
 		}
 	}
 
@@ -319,6 +321,10 @@ func (s *Handler) HumaProviderModels(ctx context.Context, input *ProviderModelsI
 		discoverySupported = false
 	}
 
+	if out == nil {
+		out = []modelInfo{}
+	}
+
 	return &ProviderModelsOutput{Body: struct {
 		Models             []modelInfo `json:"models" doc:"List of models for this provider"`
 		DiscoverySupported bool        `json:"discovery_supported" doc:"True when live/import discovery is available for this provider"`
@@ -338,8 +344,9 @@ func (s *Handler) HumaProviderModels(ctx context.Context, input *ProviderModelsI
 
 type ClearProviderDiscoveredModelsInput struct {
 	// Same id as GET /providers → providers[].id
-	ID     string `path:"id" doc:"Provider id from GET /providers → providers[].id (e.g. xiaomi-mimo)" example:"xiaomi-mimo"`
-	Source string `query:"source" doc:"Must be 'discovered' (only imported/discovered cache is cleared; static + custom kept)" example:"discovered"`
+	ID      string `path:"id" doc:"Provider id from GET /providers → providers[].id (e.g. xiaomi-mimo)" example:"xiaomi-mimo"`
+	ModelID string `query:"model_id" doc:"Optional specific model ID to delete (e.g. 'moonshotai/kimi-k3'). If empty, clears all discovered." example:"moonshotai/kimi-k3"`
+	Source  string `query:"source" doc:"Source filter (defaults to 'discovered')" example:"discovered"`
 }
 
 type ClearProviderDiscoveredModelsOutput struct {
@@ -355,12 +362,10 @@ func (s *Handler) HumaClearProviderDiscoveredModels(ctx context.Context, input *
 	if _, ok := connectors.SpecByID(providerID); !ok {
 		return nil, huma.Error404NotFound("unknown provider: " + providerID)
 	}
+	modelID := strings.TrimSpace(input.ModelID)
 	source := strings.ToLower(strings.TrimSpace(input.Source))
 	if source == "" {
 		source = "discovered"
-	}
-	if source != "discovered" {
-		return nil, huma.Error400BadRequest("source must be 'discovered'")
 	}
 	if connectors.IsNativeSlug(providerID) {
 		// Native live models are not persisted as discovered rows yet.
@@ -377,11 +382,25 @@ func (s *Handler) HumaClearProviderDiscoveredModels(ctx context.Context, input *
 	if err != nil {
 		return nil, huma.Error404NotFound("extension not found: " + providerID)
 	}
-	existing, err := s.db.ExtensionModels().ListBySource(ctx, ext.ID, "discovered")
+
+	if modelID != "" {
+		// Single model deletion
+		if err := s.db.ExtensionModels().DeleteBySlug(ctx, ext.ID, modelID); err != nil {
+			return nil, huma.Error500InternalServerError(sanitizeError(s.log, err, "delete model failed"))
+		}
+		return &ClearProviderDiscoveredModelsOutput{Body: struct {
+			Provider string `json:"provider"`
+			Source   string `json:"source"`
+			Cleared  int    `json:"cleared" doc:"Number of discovered rows removed"`
+		}{Provider: providerID, Source: source, Cleared: 1}}, nil
+	}
+
+	// Bulk clear all discovered models for this extension
+	existing, err := s.db.ExtensionModels().ListBySource(ctx, ext.ID, source)
 	if err != nil {
 		return nil, huma.Error500InternalServerError(sanitizeError(s.log, err, "list discovered models failed"))
 	}
-	if err := s.db.ExtensionModels().DeleteBySource(ctx, ext.ID, "discovered"); err != nil {
+	if err := s.db.ExtensionModels().DeleteBySource(ctx, ext.ID, source); err != nil {
 		return nil, huma.Error500InternalServerError(sanitizeError(s.log, err, "clear discovered models failed"))
 	}
 	return &ClearProviderDiscoveredModelsOutput{Body: struct {
@@ -389,6 +408,48 @@ func (s *Handler) HumaClearProviderDiscoveredModels(ctx context.Context, input *
 		Source   string `json:"source"`
 		Cleared  int    `json:"cleared" doc:"Number of discovered rows removed"`
 	}{Provider: providerID, Source: source, Cleared: len(existing)}}, nil
+}
+
+type BulkDeleteProviderModelsInput struct {
+	ID   string `path:"id" doc:"Provider id (e.g. cline)" example:"cline"`
+	Body struct {
+		ModelIDs []string `json:"model_ids" doc:"List of model IDs to delete"`
+	}
+}
+
+type BulkDeleteProviderModelsOutput struct {
+	Body struct {
+		Provider string `json:"provider"`
+		Deleted  int    `json:"deleted" doc:"Number of models removed"`
+	}
+}
+
+func (s *Handler) HumaBulkDeleteProviderModels(ctx context.Context, input *BulkDeleteProviderModelsInput) (*BulkDeleteProviderModelsOutput, error) {
+	providerID := strings.TrimSpace(input.ID)
+	if _, ok := connectors.SpecByID(providerID); !ok {
+		return nil, huma.Error404NotFound("unknown provider: " + providerID)
+	}
+	if s.db == nil {
+		return nil, huma.Error503ServiceUnavailable("database not available")
+	}
+	deleted := 0
+	if !connectors.IsNativeSlug(providerID) {
+		if ext, err := s.db.Extensions().FindBySlug(ctx, providerID); err == nil {
+			for _, mid := range input.Body.ModelIDs {
+				mid = strings.TrimSpace(mid)
+				if mid == "" {
+					continue
+				}
+				if err := s.db.ExtensionModels().DeleteBySlug(ctx, ext.ID, mid); err == nil {
+					deleted++
+				}
+			}
+		}
+	}
+	return &BulkDeleteProviderModelsOutput{Body: struct {
+		Provider string `json:"provider"`
+		Deleted  int    `json:"deleted" doc:"Number of models removed"`
+	}{Provider: providerID, Deleted: deleted}}, nil
 }
 
 // --- Provider Routing ---
@@ -1466,7 +1527,7 @@ func (s *Handler) HumaTunnelEnable(ctx context.Context, _ *TunnelEnableInput) (*
 		current := s.loadAccessSettings(ctx)
 		current.TunnelEnabled = true
 		raw, _ := json.Marshal(current)
-		s.settings.Set(ctx, accessSettingsKey, string(raw)) //nolint:errcheck // best-effort settings persist
+		s.settings.Set(ctx, accessSettingsKey, string(raw))
 	})
 	if err != nil {
 		return nil, huma.Error500InternalServerError(err.Error())
@@ -1490,7 +1551,7 @@ func (s *Handler) HumaTunnelDisable(ctx context.Context, _ *TunnelDisableInput) 
 		current := s.loadAccessSettings(ctx)
 		current.TunnelEnabled = false
 		raw, _ := json.Marshal(current)
-		s.settings.Set(ctx, accessSettingsKey, string(raw)) //nolint:errcheck // best-effort settings persist
+		s.settings.Set(ctx, accessSettingsKey, string(raw))
 	})
 	return &TunnelDisableOutput{Body: struct {
 		Success bool `json:"success"`
@@ -1527,7 +1588,7 @@ func (s *Handler) HumaTailscaleEnable(ctx context.Context, input *TailscaleEnabl
 		current := s.loadAccessSettings(ctx)
 		current.Tailscale = true
 		raw, _ := json.Marshal(current)
-		s.settings.Set(ctx, accessSettingsKey, string(raw)) //nolint:errcheck // best-effort settings persist
+		s.settings.Set(ctx, accessSettingsKey, string(raw))
 	})
 	if err != nil {
 		return nil, huma.Error500InternalServerError(err.Error())
@@ -1550,7 +1611,7 @@ func (s *Handler) HumaTailscaleDisable(ctx context.Context, _ *TailscaleDisableI
 		current := s.loadAccessSettings(ctx)
 		current.Tailscale = false
 		raw, _ := json.Marshal(current)
-		s.settings.Set(ctx, accessSettingsKey, string(raw)) //nolint:errcheck // best-effort settings persist
+		s.settings.Set(ctx, accessSettingsKey, string(raw))
 	})
 	return &TailscaleDisableOutput{Body: struct {
 		Success bool `json:"success"`

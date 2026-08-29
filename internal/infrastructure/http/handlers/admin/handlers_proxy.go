@@ -57,7 +57,7 @@ func (s *Handler) adminTestProxy(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	result := map[string]any{
 		"ok":        resp.StatusCode < 400,

@@ -232,7 +232,7 @@ func (c *Compressor) doCompress(ctx context.Context, endpoint string, payload []
 		// the attempts and then fails open.
 		return nil, 0, true, err
 	}
-	defer httpResp.Body.Close() //nolint:errcheck // best-effort close
+	defer httpResp.Body.Close()
 
 	if httpResp.StatusCode < 200 || httpResp.StatusCode > 299 {
 		retryable := isRetryableStatus(httpResp.StatusCode)

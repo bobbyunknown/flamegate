@@ -269,7 +269,7 @@ func (s *Handler) unaryChat(w http.ResponseWriter, r *http.Request, codec transf
 		w.Header().Set("X-FlameGate-Cache", "hit")
 	}
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(out) //nolint:errcheck // best-effort write // out is already a []byte from RenderResponse
+	_, _ = w.Write(out)
 }
 
 // streamChat runs a streaming request and relays SSE events in the client's
@@ -314,7 +314,7 @@ func (s *Handler) streamChat(w http.ResponseWriter, r *http.Request, codec trans
 	// the client via io.Copy — no JSON parse/serialize, no goroutines, minimal
 	// memory allocation. This is the fastest possible streaming path.
 	if result.DirectBody != nil {
-		defer result.DirectBody.Close() //nolint:errcheck // best-effort close
+		defer result.DirectBody.Close()
 		n, cpErr := io.Copy(w, result.DirectBody)
 		if cpErr != nil && !isClientDisconnect(cpErr) {
 			s.consoleLog.Log("ERROR", fmt.Sprintf("Stream interrupted after %s", humanBytes(int(n))), cpErr.Error())
@@ -382,7 +382,7 @@ func (s *Handler) streamChat(w http.ResponseWriter, r *http.Request, codec trans
 					}
 				}
 			}
-			bw.Flush() //nolint:errcheck // best-effort flush
+			bw.Flush()
 			flusher.Flush()
 			return
 		}
@@ -399,7 +399,7 @@ func (s *Handler) streamChat(w http.ResponseWriter, r *http.Request, codec trans
 		}
 		// Flush the buffered writer to the underlying http.ResponseWriter,
 		// then flush the HTTP flusher to push bytes to the client.
-		bw.Flush() //nolint:errcheck // best-effort flush
+		bw.Flush()
 		flusher.Flush()
 	}
 
@@ -427,14 +427,14 @@ func (s *Handler) streamChat(w http.ResponseWriter, r *http.Request, codec trans
 		}
 		events, _ := streamCodec.RenderStreamChunk(fc, state)
 		for _, ev := range events {
-			_, _ = bw.Write(ev) //nolint:errcheck // best-effort write
+			_, _ = bw.Write(ev)
 		}
 	}
 
 	for _, ev := range streamCodec.RenderStreamDone(state) {
-		_, _ = bw.Write(ev) //nolint:errcheck // best-effort write
+		_, _ = bw.Write(ev)
 	}
-	bw.Flush() //nolint:errcheck // best-effort flush
+	bw.Flush()
 	flusher.Flush()
 
 	latency := int(time.Since(streamStart).Milliseconds())

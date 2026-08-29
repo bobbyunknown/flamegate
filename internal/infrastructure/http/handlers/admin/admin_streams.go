@@ -31,6 +31,7 @@ func (s *Handler) MountAdmin(r chi.Router) {
 	s.MountExtensions(r)
 	s.MountStore(r)
 	s.MountCLITools(r)
+	s.MountOAuth(r)
 
 	// Branding endpoints (not yet migrated)
 	r.Get("/settings/branding", s.adminGetBranding)

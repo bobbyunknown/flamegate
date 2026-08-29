@@ -37,7 +37,6 @@ type StoreIndex struct {
 type IndexStore struct {
 	httpc *http.Client
 	cache *TTLCache
-	ttl   int64 // seconds; unused placeholder kept for symmetry
 }
 
 // NewIndexStore builds an index store with the supplied HTTP client.

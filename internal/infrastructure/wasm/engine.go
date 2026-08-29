@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 
 	"github.com/bobbyunknown/flamegate/internal/application/ports"
 	core "github.com/bobbyunknown/flamegate/internal/domain"
@@ -54,6 +55,7 @@ type Engine struct {
 // NewEngine creates a new WASM engine with the given config and dependencies.
 func NewEngine(cfg config.WASMConfig, v *vault.Vault, accountRepo ports.AccountRepository, httpClient *http.Client) *Engine {
 	r := wazero.NewRuntime(context.Background())
+	wasi_snapshot_preview1.MustInstantiate(context.Background(), r)
 	return &Engine{
 		runtime:     r,
 		modules:     make(map[string]CompiledModule),
@@ -183,11 +185,19 @@ func (e *Engine) Instantiate(ctx context.Context, slug string, env *InvokeEnv) (
 	if err != nil {
 		return nil, fmt.Errorf("wasm: instantiate host module %s: %w", slug, err)
 	}
-	defer hostMod.Close(ctx) //nolint:errcheck // best-effort close
+	defer hostMod.Close(ctx)
 
 	// Instantiate the guest module (imports resolved from "env" host).
-	guestMod, err := e.runtime.InstantiateModule(ctx, cm.compiled, wazero.NewModuleConfig().
-		WithName(fmt.Sprintf("fg-guest-%s-%d", slug, instID)))
+	// If the module exports "_initialize" (standard WASI reactor / TinyGo), invoke that
+	// instead of "_start" (which calls proc_exit(0) upon completion and closes the instance).
+	modCfg := wazero.NewModuleConfig().WithName(fmt.Sprintf("fg-guest-%s-%d", slug, instID))
+	if hasExport(cm.compiled, "_initialize") {
+		modCfg = modCfg.WithStartFunctions("_initialize")
+	} else if !hasExport(cm.compiled, "_start") {
+		modCfg = modCfg.WithStartFunctions()
+	}
+
+	guestMod, err := e.runtime.InstantiateModule(ctx, cm.compiled, modCfg)
 	if err != nil {
 		return nil, fmt.Errorf("wasm: instantiate guest module %s: %w", slug, err)
 	}
@@ -252,7 +262,7 @@ func (e *Engine) ListModels(ctx context.Context, slug string, creds core.Credent
 	if err != nil {
 		return nil, fmt.Errorf("wasm: instantiate for list_models %s: %w", slug, err)
 	}
-	defer inst.Close(ctx) //nolint:errcheck // best-effort close
+	defer inst.Close(ctx)
 
 	// Call list_models() — no args, returns resp_ptr.
 	fn := inst.ExportedFunction(entrypointName)
@@ -277,6 +287,63 @@ func (e *Engine) ListModels(ctx context.Context, slug string, creds core.Credent
 	}
 
 	return models, nil
+}
+
+// CallCapability relays an arbitrary guest call over the chat entrypoint with an
+// extra capability. The guest owns all provider logic (OAuth URL building,
+// token exchange, refresh); the host only relays. Returns nil for empty guest
+// response; guest "error" is surfaced as a map entry.
+func (e *Engine) CallCapability(ctx context.Context, slug, capability string, args map[string]any) (map[string]any, error) {
+	e.mu.RLock()
+	cm, ok := e.modules[slug]
+	e.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("wasm: module %s not found", slug)
+	}
+	ep := cm.config.Entrypoints["chat"]
+	if ep == "" {
+		ep = "invoke"
+	}
+	if !hasExport(cm.compiled, ep) {
+		return nil, fmt.Errorf("wasm: %s does not export %s", slug, ep)
+	}
+
+	log := logrus.WithField("slug", slug)
+	env := &InvokeEnv{
+		Ctx: ctx, Slug: slug, Logger: log,
+		Vault: e.vault, AccountRepo: e.accountRepo,
+		AllowedHosts: cm.config.AllowedHosts, HTTPClient: e.httpClient,
+	}
+	inst, err := e.Instantiate(ctx, slug, env)
+	if err != nil {
+		return nil, fmt.Errorf("wasm: instantiate %s: %w", slug, err)
+	}
+	defer inst.Close(ctx)
+
+	fn := inst.ExportedFunction(ep)
+	if fn == nil {
+		return nil, fmt.Errorf("wasm: %s does not export %s", slug, ep)
+	}
+	req := guestRequest{Capability: capability, Extra: args}
+	reqPtr, reqSize, err := writeGuestJSON(ctx, inst, req)
+	if err != nil {
+		return nil, fmt.Errorf("wasm: write request: %w", err)
+	}
+	defer func() { _ = deallocGuest(ctx, inst, reqPtr, reqSize) }()
+
+	results, err := fn.Call(ctx, uint64(reqPtr), uint64(reqSize))
+	if err != nil {
+		return nil, fmt.Errorf("wasm: capability %s %s: %w", capability, slug, err)
+	}
+	respPtr := uint32(results[0])
+	if respPtr == 0 {
+		return nil, nil
+	}
+	var out map[string]any
+	if err := readGuestJSON(inst, respPtr, 0, &out); err != nil {
+		return nil, fmt.Errorf("wasm: parse %s response %s: %w", capability, slug, err)
+	}
+	return out, nil
 }
 
 // hasExport checks if a compiled module exports a function with the given name.

@@ -127,7 +127,7 @@ func verifyAllChecksums(zr *zip.ReadCloser, sums map[string]string) error {
 		}
 		h := sha256.New()
 		if _, err := io.Copy(h, rc); err != nil {
-			rc.Close() //nolint:errcheck
+			_ = rc.Close()
 			return fmt.Errorf("verify: hash %s: %w", name, err)
 		}
 		_ = rc.Close()
@@ -146,7 +146,7 @@ func readSignature(zr *zip.ReadCloser) []byte {
 			if err != nil {
 				return nil
 			}
-			defer rc.Close() //nolint:errcheck
+			defer rc.Close()
 			data, _ := io.ReadAll(rc)
 			return data
 		}

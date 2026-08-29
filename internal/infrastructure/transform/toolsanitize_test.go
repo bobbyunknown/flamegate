@@ -66,7 +66,7 @@ func TestToolArgSanitizer_BuffersAndFlushes(t *testing.T) {
 func TestToolArgSanitizer_SanitizesReadLimit(t *testing.T) {
 	sanitized := sanitizeToolArgs("Read", `{"file_path":"/tmp/a.txt","limit":"100"}`)
 	var args map[string]any
-	json.Unmarshal([]byte(sanitized), &args) //nolint:errcheck // test helper
+	json.Unmarshal([]byte(sanitized), &args)
 
 	if args["limit"] != float64(100) {
 		t.Errorf("expected limit 100 (float64), got %v (%T)", args["limit"], args["limit"])
@@ -76,7 +76,7 @@ func TestToolArgSanitizer_SanitizesReadLimit(t *testing.T) {
 func TestToolArgSanitizer_ClampsReadLimit(t *testing.T) {
 	sanitized := sanitizeToolArgs("Read", `{"file_path":"/tmp/a.txt","limit":5000}`)
 	var args map[string]any
-	json.Unmarshal([]byte(sanitized), &args) //nolint:errcheck // test helper
+	json.Unmarshal([]byte(sanitized), &args)
 
 	if args["limit"] != float64(2000) {
 		t.Errorf("expected limit clamped to 2000, got %v", args["limit"])
@@ -86,7 +86,7 @@ func TestToolArgSanitizer_ClampsReadLimit(t *testing.T) {
 func TestToolArgSanitizer_ClampsReadLimitMin(t *testing.T) {
 	sanitized := sanitizeToolArgs("Read", `{"file_path":"/tmp/a.txt","limit":0}`)
 	var args map[string]any
-	json.Unmarshal([]byte(sanitized), &args) //nolint:errcheck // test helper
+	json.Unmarshal([]byte(sanitized), &args)
 
 	if args["limit"] != float64(1) {
 		t.Errorf("expected limit clamped to 1, got %v", args["limit"])
@@ -96,7 +96,7 @@ func TestToolArgSanitizer_ClampsReadLimitMin(t *testing.T) {
 func TestToolArgSanitizer_SanitizesReadOffset(t *testing.T) {
 	sanitized := sanitizeToolArgs("Read", `{"file_path":"/tmp/a.txt","offset":"-5"}`)
 	var args map[string]any
-	json.Unmarshal([]byte(sanitized), &args) //nolint:errcheck // test helper
+	json.Unmarshal([]byte(sanitized), &args)
 
 	if args["offset"] != float64(0) {
 		t.Errorf("expected offset clamped to 0, got %v", args["offset"])
@@ -106,7 +106,7 @@ func TestToolArgSanitizer_SanitizesReadOffset(t *testing.T) {
 func TestToolArgSanitizer_RemovesPagesForNonPdf(t *testing.T) {
 	sanitized := sanitizeToolArgs("Read", `{"file_path":"/tmp/a.txt","pages":"1-5"}`)
 	var args map[string]any
-	json.Unmarshal([]byte(sanitized), &args) //nolint:errcheck // test helper
+	json.Unmarshal([]byte(sanitized), &args)
 
 	if _, ok := args["pages"]; ok {
 		t.Error("expected 'pages' to be removed for non-PDF file")
@@ -116,7 +116,7 @@ func TestToolArgSanitizer_RemovesPagesForNonPdf(t *testing.T) {
 func TestToolArgSanitizer_KeepsPagesForPdf(t *testing.T) {
 	sanitized := sanitizeToolArgs("Read", `{"file_path":"/tmp/doc.pdf","pages":"1-5"}`)
 	var args map[string]any
-	json.Unmarshal([]byte(sanitized), &args) //nolint:errcheck // test helper
+	json.Unmarshal([]byte(sanitized), &args)
 
 	if args["pages"] != "1-5" {
 		t.Errorf("expected pages '1-5' for PDF, got %v", args["pages"])
@@ -276,7 +276,7 @@ func TestSanitizeToolArgs_PassthroughValidArgs(t *testing.T) {
 	input := `{"file_path":"/tmp/a.txt","limit":50}`
 	got := sanitizeToolArgs("Read", input)
 	var args map[string]any
-	json.Unmarshal([]byte(got), &args) //nolint:errcheck // test helper
+	json.Unmarshal([]byte(got), &args)
 
 	if args["limit"] != float64(50) {
 		t.Errorf("valid limit should pass through, got %v", args["limit"])

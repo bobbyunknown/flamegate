@@ -54,3 +54,19 @@ export const cursorImport = (token: string, label?: string) =>
 // Command Code connect flow (import token from CLI or studio). Mounted under /commandcode.
 export const commandcodeImport = (token: string, label?: string) =>
   request<{ id: string; provider: string }>("POST", "/commandcode/import", { token, label });
+
+// Generic per-extension OAuth (host gateway). The guest builds the authorize
+// URL; the host runs the callback + vault persist.
+export const oauthStart = (slug: string) =>
+  request<{ authorize_url: string; state: string; redirect_uri: string }>("POST", `/oauth/${slug}/start`, {});
+
+export const oauthExchange = (
+  slug: string,
+  input: { code: string; redirect_uri?: string; state?: string; label?: string }
+) =>
+  request<{ ok: boolean; provider: string; account_id: string; label?: string }>(
+    "POST",
+    `/oauth/${slug}/exchange`,
+    input
+  );
+

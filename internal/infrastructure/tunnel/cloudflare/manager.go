@@ -76,7 +76,7 @@ func (m *Manager) registerTunnelURL(shortID, tunnelURL string) error {
 	if err != nil {
 		return fmt.Errorf("register tunnel URL: %w", err)
 	}
-	resp.Body.Close() //nolint:errcheck // best-effort close
+	resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("register tunnel URL: status %d", resp.StatusCode)
 	}
@@ -158,7 +158,7 @@ func (m *Manager) Enable(settingsUpdate func(tunnelURL string)) (*EnableResult, 
 
 	select {
 	case <-token:
-		result.Cmd.Process.Kill() //nolint:errcheck // best-effort kill
+		result.Cmd.Process.Kill()
 		return nil, fmt.Errorf("tunnel canceled")
 	default:
 	}

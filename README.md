@@ -54,7 +54,7 @@ The admin dashboard, REST API, and (by default) the proxy API share port `20180`
 ### Prerequisites
 
 - **Go** 1.26+
-- **Node.js** 18+ and `pnpm` (for building the frontend dashboard)
+- **Node.js** 18+ and `bun` (for building the frontend dashboard)
 
 ### 1. Build
 
@@ -63,7 +63,7 @@ git clone https://github.com/bobbyunknown/flamegate.git
 cd flamegate
 
 go build ./cmd/flamegate                    # backend binary → ./flamegate
-cd frontend && pnpm install && pnpm build   # React dashboard bundle
+cd frontend && bun install && bun run build # React dashboard bundle
 ```
 
 `go build ./cmd/flamegate` produces the `./flamegate` binary in the repo root.
@@ -85,7 +85,7 @@ This creates the initial database and prints an administrator API key (prefixed 
 The server listens on `http://localhost:20180` and opens the dashboard in your browser. `flamegate status` reports whether it is running.
 
 > [!TIP]
-> For development with hot reload: run `air` for the Go backend (see `.air.toml`) and `cd frontend && pnpm dev` for the Vite dev server on `:5180`.
+> For development with hot reload: run `air` for the Go backend (see `.air.toml`) and `cd frontend && bun run dev` for the Vite dev server on `:5180`.
 
 ### 4. Send your first request
 

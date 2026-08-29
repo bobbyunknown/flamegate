@@ -21,9 +21,6 @@ func serveBytes(t *testing.T, name string, data []byte) string {
 	return srv.URL + "/" + name
 }
 
-// httptestClient returns a client wired to httptest servers.
-func httptestClient() *http.Client { return httptest.NewServer(nil).Client() }
-
 // httptestServer serves fixed path→body fixtures and returns the server. The
 // caller must Close it.
 func httptestServer(t *testing.T, fixtures map[string]string) *httptest.Server {

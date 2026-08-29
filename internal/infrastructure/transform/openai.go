@@ -240,7 +240,7 @@ func decodeOAIContentParts(raw json.RawMessage) []core.ContentPart {
 		} `json:"image_url"`
 	}
 	if err := json.Unmarshal(raw, &arr); err != nil {
-		return nil //nolint:nilerr // best-effort parser
+		return nil
 	}
 
 	var parts []core.ContentPart

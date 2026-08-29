@@ -46,15 +46,15 @@ func TestXiaomiMiMo_Chat(t *testing.T) {
 
 		w.Header().Set("Content-Type", "text/event-stream")
 		flush, _ := w.(http.Flusher)
-	fmt.Fprintf(w, "%s\n\n", openaiStreamChunk("Hello from MiMo V2.5 Pro")) //nolint:errcheck // test helper
-	fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n") //nolint:errcheck // test helper
-	fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2,\"total_tokens\":5}}\n\n") //nolint:errcheck // test helper
-	fmt.Fprintf(w, "data: [DONE]\n\n") //nolint:errcheck // test helper
+	fmt.Fprintf(w, "%s\n\n", openaiStreamChunk("Hello from MiMo V2.5 Pro"))
+	fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n")
+	fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2,\"total_tokens\":5}}\n\n")
+	fmt.Fprintf(w, "data: [DONE]\n\n")
 		if flush != nil {
 			flush.Flush()
 		}
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("xiaomi-mimo", srv.URL)
 	req := &core.ChatRequest{
@@ -95,14 +95,14 @@ func TestXiaomiMiMo_Chat_MultipleModels(t *testing.T) {
 
 				w.Header().Set("Content-Type", "text/event-stream")
 				flush, _ := w.(http.Flusher)
-		fmt.Fprintf(w, "%s\n\n", openaiStreamChunk(expectedText)) //nolint:errcheck // test helper
-		fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n") //nolint:errcheck // test helper
-		fmt.Fprintf(w, "data: [DONE]\n\n") //nolint:errcheck // test helper
+		fmt.Fprintf(w, "%s\n\n", openaiStreamChunk(expectedText))
+		fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n")
+		fmt.Fprintf(w, "data: [DONE]\n\n")
 				if flush != nil {
 					flush.Flush()
 				}
 			}))
-			defer srv.Close() //nolint:errcheck // best-effort close
+			defer srv.Close()
 
 			c := NewOpenAICompatible("xiaomi-mimo", srv.URL)
 			req := &core.ChatRequest{
@@ -132,13 +132,13 @@ func TestXiaomiMiMo_Stream(t *testing.T) {
 			`data: [DONE]`,
 		}
 		for _, l := range lines {
-		fmt.Fprintf(w, "%s\n\n", l) //nolint:errcheck // test helper
+		fmt.Fprintf(w, "%s\n\n", l)
 			if flush != nil {
 				flush.Flush()
 			}
 		}
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("xiaomi-mimo", srv.URL)
 	req := &core.ChatRequest{
@@ -170,9 +170,9 @@ func TestXiaomiMiMo_Stream(t *testing.T) {
 func TestXiaomiMiMo_Chat_AuthError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-	fmt.Fprint(w, `{"error":{"message":"Invalid API key","type":"invalid_request_error"}}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"error":{"message":"Invalid API key","type":"invalid_request_error"}}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("xiaomi-mimo", srv.URL)
 	req := &core.ChatRequest{
@@ -195,9 +195,9 @@ func TestXiaomiMiMo_Chat_RateLimit(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", "30")
 		w.WriteHeader(http.StatusTooManyRequests)
-	fmt.Fprint(w, `{"error":{"message":"Rate limit exceeded"}}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"error":{"message":"Rate limit exceeded"}}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("xiaomi-mimo", srv.URL)
 	req := &core.ChatRequest{
@@ -219,9 +219,9 @@ func TestXiaomiMiMo_Chat_RateLimit(t *testing.T) {
 func TestXiaomiMiMo_Chat_BadRequest(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-	fmt.Fprint(w, `{"error":{"message":"Model not found","type":"invalid_request_error"}}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"error":{"message":"Model not found","type":"invalid_request_error"}}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("xiaomi-mimo", srv.URL)
 	req := &core.ChatRequest{
@@ -244,9 +244,9 @@ func TestXiaomiMiMo_Validate(t *testing.T) {
 		require.Equal(t, "/models", r.URL.Path)
 		require.Equal(t, "GET", r.Method)
 		w.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(w, `{"data":[{"id":"mimo-v2.5-pro","object":"model"}]}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"data":[{"id":"mimo-v2.5-pro","object":"model"}]}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("xiaomi-mimo", srv.URL)
 	err := c.Validate(context.Background(), core.Credentials{APIKey: "test-key"})
@@ -256,9 +256,9 @@ func TestXiaomiMiMo_Validate(t *testing.T) {
 func TestXiaomiMiMo_Validate_BadKey(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-	fmt.Fprint(w, `{"error":{"message":"Invalid API key"}}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"error":{"message":"Invalid API key"}}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("xiaomi-mimo", srv.URL)
 	err := c.Validate(context.Background(), core.Credentials{APIKey: "bad-key"})

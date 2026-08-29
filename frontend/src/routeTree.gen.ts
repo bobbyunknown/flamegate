@@ -9,40 +9,40 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PortalRouteImport } from './routes/portal'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as PortalRouteImport } from './routes/portal'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
-import { Route as AuthedUsageRouteImport } from './routes/_authed/usage'
-import { Route as AuthedSystemRouteImport } from './routes/_authed/system'
-import { Route as AuthedSkillsRouteImport } from './routes/_authed/skills'
-import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
-import { Route as AuthedQuotaRouteImport } from './routes/_authed/quota'
-import { Route as AuthedProxyPoolsRouteImport } from './routes/_authed/proxy-pools'
-import { Route as AuthedProvidersRouteImport } from './routes/_authed/providers'
-import { Route as AuthedPlansRouteImport } from './routes/_authed/plans'
-import { Route as AuthedMediaRouteImport } from './routes/_authed/media'
-import { Route as AuthedKeysRouteImport } from './routes/_authed/keys'
-import { Route as AuthedGuardrailsRouteImport } from './routes/_authed/guardrails'
-import { Route as AuthedExtensionsRouteImport } from './routes/_authed/extensions'
-import { Route as AuthedEndpointsRouteImport } from './routes/_authed/endpoints'
-import { Route as AuthedConsoleRouteImport } from './routes/_authed/console'
-import { Route as AuthedCliToolsRouteImport } from './routes/_authed/cli-tools'
-import { Route as AuthedChainsRouteImport } from './routes/_authed/chains'
 import { Route as AuthedBudgetsRouteImport } from './routes/_authed/budgets'
+import { Route as AuthedChainsRouteImport } from './routes/_authed/chains'
+import { Route as AuthedCliToolsRouteImport } from './routes/_authed/cli-tools'
+import { Route as AuthedConsoleRouteImport } from './routes/_authed/console'
+import { Route as AuthedEndpointsRouteImport } from './routes/_authed/endpoints'
+import { Route as AuthedExtensionsRouteImport } from './routes/_authed/extensions'
+import { Route as AuthedGuardrailsRouteImport } from './routes/_authed/guardrails'
+import { Route as AuthedKeysRouteImport } from './routes/_authed/keys'
+import { Route as AuthedMediaRouteImport } from './routes/_authed/media'
+import { Route as AuthedPlansRouteImport } from './routes/_authed/plans'
+import { Route as AuthedProvidersRouteImport } from './routes/_authed/providers'
+import { Route as AuthedProxyPoolsRouteImport } from './routes/_authed/proxy-pools'
+import { Route as AuthedQuotaRouteImport } from './routes/_authed/quota'
+import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
+import { Route as AuthedSkillsRouteImport } from './routes/_authed/skills'
+import { Route as AuthedSystemRouteImport } from './routes/_authed/system'
+import { Route as AuthedUsageRouteImport } from './routes/_authed/usage'
+import { Route as AuthedCliToolsToolIdRouteImport } from './routes/_authed/cli-tools.$toolId'
+import { Route as AuthedKeysIdRouteImport } from './routes/_authed/keys.$id'
+import { Route as AuthedMediaKindRouteImport } from './routes/_authed/media.$kind'
 import { Route as AuthedProvidersIndexRouteImport } from './routes/_authed/providers.index'
 import { Route as AuthedProvidersIdRouteImport } from './routes/_authed/providers.$id'
-import { Route as AuthedMediaKindRouteImport } from './routes/_authed/media.$kind'
-import { Route as AuthedKeysIdRouteImport } from './routes/_authed/keys.$id'
-import { Route as AuthedCliToolsToolIdRouteImport } from './routes/_authed/cli-tools.$toolId'
 import { Route as AuthedMediaKindIdRouteImport } from './routes/_authed/media.$kind.$id'
 
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthedRoute = AuthedRouteImport.update({
-  id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedIndexRoute = AuthedIndexRouteImport.update({
@@ -50,79 +50,9 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedUsageRoute = AuthedUsageRouteImport.update({
-  id: '/usage',
-  path: '/usage',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedSystemRoute = AuthedSystemRouteImport.update({
-  id: '/system',
-  path: '/system',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedSkillsRoute = AuthedSkillsRouteImport.update({
-  id: '/skills',
-  path: '/skills',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedQuotaRoute = AuthedQuotaRouteImport.update({
-  id: '/quota',
-  path: '/quota',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedProxyPoolsRoute = AuthedProxyPoolsRouteImport.update({
-  id: '/proxy-pools',
-  path: '/proxy-pools',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedProvidersRoute = AuthedProvidersRouteImport.update({
-  id: '/providers',
-  path: '/providers',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedPlansRoute = AuthedPlansRouteImport.update({
-  id: '/plans',
-  path: '/plans',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedMediaRoute = AuthedMediaRouteImport.update({
-  id: '/media',
-  path: '/media',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedKeysRoute = AuthedKeysRouteImport.update({
-  id: '/keys',
-  path: '/keys',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedGuardrailsRoute = AuthedGuardrailsRouteImport.update({
-  id: '/guardrails',
-  path: '/guardrails',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedExtensionsRoute = AuthedExtensionsRouteImport.update({
-  id: '/extensions',
-  path: '/extensions',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedEndpointsRoute = AuthedEndpointsRouteImport.update({
-  id: '/endpoints',
-  path: '/endpoints',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedConsoleRoute = AuthedConsoleRouteImport.update({
-  id: '/console',
-  path: '/console',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedCliToolsRoute = AuthedCliToolsRouteImport.update({
-  id: '/cli-tools',
-  path: '/cli-tools',
+const AuthedBudgetsRoute = AuthedBudgetsRouteImport.update({
+  id: '/budgets',
+  path: '/budgets',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedChainsRoute = AuthedChainsRouteImport.update({
@@ -130,10 +60,95 @@ const AuthedChainsRoute = AuthedChainsRouteImport.update({
   path: '/chains',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedBudgetsRoute = AuthedBudgetsRouteImport.update({
-  id: '/budgets',
-  path: '/budgets',
+const AuthedCliToolsRoute = AuthedCliToolsRouteImport.update({
+  id: '/cli-tools',
+  path: '/cli-tools',
   getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedConsoleRoute = AuthedConsoleRouteImport.update({
+  id: '/console',
+  path: '/console',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedEndpointsRoute = AuthedEndpointsRouteImport.update({
+  id: '/endpoints',
+  path: '/endpoints',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedExtensionsRoute = AuthedExtensionsRouteImport.update({
+  id: '/extensions',
+  path: '/extensions',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedGuardrailsRoute = AuthedGuardrailsRouteImport.update({
+  id: '/guardrails',
+  path: '/guardrails',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedKeysRoute = AuthedKeysRouteImport.update({
+  id: '/keys',
+  path: '/keys',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedMediaRoute = AuthedMediaRouteImport.update({
+  id: '/media',
+  path: '/media',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedPlansRoute = AuthedPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedProvidersRoute = AuthedProvidersRouteImport.update({
+  id: '/providers',
+  path: '/providers',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedProxyPoolsRoute = AuthedProxyPoolsRouteImport.update({
+  id: '/proxy-pools',
+  path: '/proxy-pools',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedQuotaRoute = AuthedQuotaRouteImport.update({
+  id: '/quota',
+  path: '/quota',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSkillsRoute = AuthedSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSystemRoute = AuthedSystemRouteImport.update({
+  id: '/system',
+  path: '/system',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedUsageRoute = AuthedUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedCliToolsToolIdRoute = AuthedCliToolsToolIdRouteImport.update({
+  id: '/$toolId',
+  path: '/$toolId',
+  getParentRoute: () => AuthedCliToolsRoute,
+} as any)
+const AuthedKeysIdRoute = AuthedKeysIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AuthedKeysRoute,
+} as any)
+const AuthedMediaKindRoute = AuthedMediaKindRouteImport.update({
+  id: '/$kind',
+  path: '/$kind',
+  getParentRoute: () => AuthedMediaRoute,
 } as any)
 const AuthedProvidersIndexRoute = AuthedProvidersIndexRouteImport.update({
   id: '/',
@@ -144,21 +159,6 @@ const AuthedProvidersIdRoute = AuthedProvidersIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => AuthedProvidersRoute,
-} as any)
-const AuthedMediaKindRoute = AuthedMediaKindRouteImport.update({
-  id: '/$kind',
-  path: '/$kind',
-  getParentRoute: () => AuthedMediaRoute,
-} as any)
-const AuthedKeysIdRoute = AuthedKeysIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthedKeysRoute,
-} as any)
-const AuthedCliToolsToolIdRoute = AuthedCliToolsToolIdRouteImport.update({
-  id: '/$toolId',
-  path: '/$toolId',
-  getParentRoute: () => AuthedCliToolsRoute,
 } as any)
 const AuthedMediaKindIdRoute = AuthedMediaKindIdRouteImport.update({
   id: '/$id',
@@ -339,18 +339,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/portal': {
-      id: '/portal'
-      path: '/portal'
-      fullPath: '/portal'
-      preLoaderRoute: typeof PortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authed': {
       id: '/_authed'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/': {
@@ -360,109 +360,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/usage': {
-      id: '/_authed/usage'
-      path: '/usage'
-      fullPath: '/usage'
-      preLoaderRoute: typeof AuthedUsageRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/system': {
-      id: '/_authed/system'
-      path: '/system'
-      fullPath: '/system'
-      preLoaderRoute: typeof AuthedSystemRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/skills': {
-      id: '/_authed/skills'
-      path: '/skills'
-      fullPath: '/skills'
-      preLoaderRoute: typeof AuthedSkillsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings': {
-      id: '/_authed/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthedSettingsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/quota': {
-      id: '/_authed/quota'
-      path: '/quota'
-      fullPath: '/quota'
-      preLoaderRoute: typeof AuthedQuotaRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/proxy-pools': {
-      id: '/_authed/proxy-pools'
-      path: '/proxy-pools'
-      fullPath: '/proxy-pools'
-      preLoaderRoute: typeof AuthedProxyPoolsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/providers': {
-      id: '/_authed/providers'
-      path: '/providers'
-      fullPath: '/providers'
-      preLoaderRoute: typeof AuthedProvidersRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/plans': {
-      id: '/_authed/plans'
-      path: '/plans'
-      fullPath: '/plans'
-      preLoaderRoute: typeof AuthedPlansRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/media': {
-      id: '/_authed/media'
-      path: '/media'
-      fullPath: '/media'
-      preLoaderRoute: typeof AuthedMediaRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/keys': {
-      id: '/_authed/keys'
-      path: '/keys'
-      fullPath: '/keys'
-      preLoaderRoute: typeof AuthedKeysRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/guardrails': {
-      id: '/_authed/guardrails'
-      path: '/guardrails'
-      fullPath: '/guardrails'
-      preLoaderRoute: typeof AuthedGuardrailsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/extensions': {
-      id: '/_authed/extensions'
-      path: '/extensions'
-      fullPath: '/extensions'
-      preLoaderRoute: typeof AuthedExtensionsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/endpoints': {
-      id: '/_authed/endpoints'
-      path: '/endpoints'
-      fullPath: '/endpoints'
-      preLoaderRoute: typeof AuthedEndpointsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/console': {
-      id: '/_authed/console'
-      path: '/console'
-      fullPath: '/console'
-      preLoaderRoute: typeof AuthedConsoleRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/cli-tools': {
-      id: '/_authed/cli-tools'
-      path: '/cli-tools'
-      fullPath: '/cli-tools'
-      preLoaderRoute: typeof AuthedCliToolsRouteImport
+    '/_authed/budgets': {
+      id: '/_authed/budgets'
+      path: '/budgets'
+      fullPath: '/budgets'
+      preLoaderRoute: typeof AuthedBudgetsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/chains': {
@@ -472,12 +374,131 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedChainsRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/budgets': {
-      id: '/_authed/budgets'
-      path: '/budgets'
-      fullPath: '/budgets'
-      preLoaderRoute: typeof AuthedBudgetsRouteImport
+    '/_authed/cli-tools': {
+      id: '/_authed/cli-tools'
+      path: '/cli-tools'
+      fullPath: '/cli-tools'
+      preLoaderRoute: typeof AuthedCliToolsRouteImport
       parentRoute: typeof AuthedRoute
+    }
+    '/_authed/console': {
+      id: '/_authed/console'
+      path: '/console'
+      fullPath: '/console'
+      preLoaderRoute: typeof AuthedConsoleRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/endpoints': {
+      id: '/_authed/endpoints'
+      path: '/endpoints'
+      fullPath: '/endpoints'
+      preLoaderRoute: typeof AuthedEndpointsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/extensions': {
+      id: '/_authed/extensions'
+      path: '/extensions'
+      fullPath: '/extensions'
+      preLoaderRoute: typeof AuthedExtensionsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/guardrails': {
+      id: '/_authed/guardrails'
+      path: '/guardrails'
+      fullPath: '/guardrails'
+      preLoaderRoute: typeof AuthedGuardrailsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/keys': {
+      id: '/_authed/keys'
+      path: '/keys'
+      fullPath: '/keys'
+      preLoaderRoute: typeof AuthedKeysRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/media': {
+      id: '/_authed/media'
+      path: '/media'
+      fullPath: '/media'
+      preLoaderRoute: typeof AuthedMediaRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/plans': {
+      id: '/_authed/plans'
+      path: '/plans'
+      fullPath: '/plans'
+      preLoaderRoute: typeof AuthedPlansRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/providers': {
+      id: '/_authed/providers'
+      path: '/providers'
+      fullPath: '/providers'
+      preLoaderRoute: typeof AuthedProvidersRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/proxy-pools': {
+      id: '/_authed/proxy-pools'
+      path: '/proxy-pools'
+      fullPath: '/proxy-pools'
+      preLoaderRoute: typeof AuthedProxyPoolsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/quota': {
+      id: '/_authed/quota'
+      path: '/quota'
+      fullPath: '/quota'
+      preLoaderRoute: typeof AuthedQuotaRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings': {
+      id: '/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthedSettingsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/skills': {
+      id: '/_authed/skills'
+      path: '/skills'
+      fullPath: '/skills'
+      preLoaderRoute: typeof AuthedSkillsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/system': {
+      id: '/_authed/system'
+      path: '/system'
+      fullPath: '/system'
+      preLoaderRoute: typeof AuthedSystemRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/usage': {
+      id: '/_authed/usage'
+      path: '/usage'
+      fullPath: '/usage'
+      preLoaderRoute: typeof AuthedUsageRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/cli-tools/$toolId': {
+      id: '/_authed/cli-tools/$toolId'
+      path: '/$toolId'
+      fullPath: '/cli-tools/$toolId'
+      preLoaderRoute: typeof AuthedCliToolsToolIdRouteImport
+      parentRoute: typeof AuthedCliToolsRoute
+    }
+    '/_authed/keys/$id': {
+      id: '/_authed/keys/$id'
+      path: '/$id'
+      fullPath: '/keys/$id'
+      preLoaderRoute: typeof AuthedKeysIdRouteImport
+      parentRoute: typeof AuthedKeysRoute
+    }
+    '/_authed/media/$kind': {
+      id: '/_authed/media/$kind'
+      path: '/$kind'
+      fullPath: '/media/$kind'
+      preLoaderRoute: typeof AuthedMediaKindRouteImport
+      parentRoute: typeof AuthedMediaRoute
     }
     '/_authed/providers/': {
       id: '/_authed/providers/'
@@ -492,27 +513,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/providers/$id'
       preLoaderRoute: typeof AuthedProvidersIdRouteImport
       parentRoute: typeof AuthedProvidersRoute
-    }
-    '/_authed/media/$kind': {
-      id: '/_authed/media/$kind'
-      path: '/$kind'
-      fullPath: '/media/$kind'
-      preLoaderRoute: typeof AuthedMediaKindRouteImport
-      parentRoute: typeof AuthedMediaRoute
-    }
-    '/_authed/keys/$id': {
-      id: '/_authed/keys/$id'
-      path: '/$id'
-      fullPath: '/keys/$id'
-      preLoaderRoute: typeof AuthedKeysIdRouteImport
-      parentRoute: typeof AuthedKeysRoute
-    }
-    '/_authed/cli-tools/$toolId': {
-      id: '/_authed/cli-tools/$toolId'
-      path: '/$toolId'
-      fullPath: '/cli-tools/$toolId'
-      preLoaderRoute: typeof AuthedCliToolsToolIdRouteImport
-      parentRoute: typeof AuthedCliToolsRoute
     }
     '/_authed/media/$kind/$id': {
       id: '/_authed/media/$kind/$id'

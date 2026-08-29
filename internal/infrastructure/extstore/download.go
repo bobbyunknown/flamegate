@@ -41,8 +41,8 @@ func (d *Downloader) FetchToTemp(ctx context.Context, url string, maxBytes int64
 		return "", fmt.Errorf("download: create temp: %w", err)
 	}
 	abort := func() {
-		tmp.Close()            //nolint:errcheck // best-effort
-		os.Remove(tmp.Name())  //nolint:errcheck // best-effort
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
 	}
 
 	w := io.Writer(tmp)
@@ -60,7 +60,7 @@ func (d *Downloader) FetchToTemp(ctx context.Context, url string, maxBytes int64
 		return "", ErrDownloadTooLarge
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmp.Name()) //nolint:errcheck // best-effort
+		_ = os.Remove(tmp.Name())
 		return "", fmt.Errorf("download: close: %w", err)
 	}
 	return tmp.Name(), nil

@@ -34,6 +34,10 @@ type ExtensionSchema struct {
 	Entrypoints       map[string]string `json:"entrypoints"`
 	Timeout           int               `json:"timeout,omitempty"`
 	DefaultAccountKey string            `json:"default_account_key,omitempty"`
+	// AuthModes lists the auth mechanisms the extension supports (e.g.
+	// ["oauth"] for OAuth-only providers like Cline). Empty defaults to
+	// api_key (RegisterExtensionSpec).
+	AuthModes []string `json:"auth_modes,omitempty"`
 }
 
 // ExtensionManifest holds the paths and parsed schema for a discovered extension.

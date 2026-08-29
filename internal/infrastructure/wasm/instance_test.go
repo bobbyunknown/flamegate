@@ -14,7 +14,7 @@ import (
 
 func TestModule_AcquireRelease(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug:    "test-ext",
@@ -36,7 +36,7 @@ func TestModule_AcquireRelease(t *testing.T) {
 
 func TestModule_AcquireNotActive(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug: "test-ext",
@@ -52,7 +52,7 @@ func TestModule_AcquireNotActive(t *testing.T) {
 
 func TestModule_PoolExhausted(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug: "test-ext",
@@ -76,7 +76,7 @@ func TestModule_PoolExhausted(t *testing.T) {
 
 func TestModule_ConcurrentAcquireRelease(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug: "test-ext",
@@ -119,7 +119,7 @@ func TestModule_ConcurrentAcquireRelease(t *testing.T) {
 
 func TestModule_StateTransitions(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug: "test-ext",

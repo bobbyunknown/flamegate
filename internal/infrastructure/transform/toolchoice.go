@@ -20,7 +20,7 @@ func claudeToolChoiceToOpenAI(raw json.RawMessage) any {
 	}
 	var m map[string]any
 	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil //nolint:nilerr // best-effort parser
+		return nil
 	}
 	typ, _ := m["type"].(string)
 	switch typ {

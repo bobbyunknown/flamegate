@@ -370,6 +370,9 @@ type Extension struct {
 	Entrypoints  string     `gorm:"type:text"`
 	Config       string     `gorm:"type:text"`
 	DefaultAccountKey string `gorm:"type:varchar(255)"`
+	// AuthKind is the auth mechanism the extension uses (api_key|oauth).
+	// Empty defaults to api_key.
+	AuthKind string `gorm:"type:varchar(16);default:api_key"`
 	// AutoSyncModels controls whether install/enable runs list_models into
 	// extension_models. Default true; user can disable per extension.
 	AutoSyncModels bool `gorm:"not null;default:true"`

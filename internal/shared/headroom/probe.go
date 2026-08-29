@@ -62,7 +62,7 @@ func (c *Compressor) Probe(ctx context.Context, cfg Config) ProbeResult {
 		res.Message = "not reachable: " + maskErr(err)
 		return res
 	}
-	defer httpResp.Body.Close() //nolint:errcheck // best-effort close
+	defer httpResp.Body.Close()
 
 	res.Reachable = true
 	res.Status = httpResp.StatusCode

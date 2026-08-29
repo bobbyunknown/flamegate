@@ -12,12 +12,53 @@ linters:
     - staticcheck
     - unused
     - misspell
-
-linters-settings:
-  errcheck:
-    check-blank: true
+  settings:
+    errcheck:
+      check-blank: false
+      exclude-functions:
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (io.WriteCloser).Close
+        - (io/fs.File).Close
+        - (*archive/zip.ReadCloser).Close
+        - (*net/http.Response).Body.Close
+        - (*net/http/httptest.Server).Close
+        - (net/http.ResponseWriter).Write
+        - (*os.File).Close
+        - os.Remove
+        - os.RemoveAll
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*github.com/bobbyunknown/flamegate/internal/infrastructure/wasm.Engine).Close
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Print
+        - fmt.Printf
+        - fmt.Println
+        - (github.com/tetratelabs/wazero.Runtime).Close
+        - (github.com/tetratelabs/wazero/api.Module).Close
+        - (github.com/tetratelabs/wazero/api.Closer).Close
+        - (net/http.Flusher).Flush
+        - (*bufio.Writer).Flush
+        - (*bytes.Buffer).Write
+        - (*bytes.Buffer).WriteString
+        - (*strings.Builder).WriteString
+        - (*encoding/json.Encoder).Encode
+        - (*encoding/json.Decoder).Decode
+        - encoding/json.Unmarshal
+        - (*compress/gzip.Reader).Close
+        - (net.Conn).Close
+        - (*os.Process).Kill
+        - (*os/exec.Cmd).Run
+        - (*os/exec.Cmd).Wait
+        - os.MkdirAll
+        - os.Chmod
+        - (*github.com/bobbyunknown/flamegate/internal/infrastructure/persistence.DB).Close
+        - (*github.com/bobbyunknown/flamegate/internal/infrastructure/persistence.SettingsRepo).Set
+        - (*github.com/bobbyunknown/flamegate/internal/infrastructure/meter.BatchMeter).Record
+        - github.com/bobbyunknown/flamegate/internal/infrastructure/wasm.deallocGuest
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0

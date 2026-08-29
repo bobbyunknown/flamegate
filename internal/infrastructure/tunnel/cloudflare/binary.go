@@ -103,7 +103,7 @@ func isValidBinary(path string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close() //nolint:errcheck // best-effort close
+	defer f.Close()
 	buf := make([]byte, 4)
 	if _, err := io.ReadFull(f, buf); err != nil {
 		return false
@@ -141,14 +141,14 @@ func doEnsure(dataDir string) error {
 
 	// Clean up incomplete downloads.
 	tmpPath := binPath + ".tmp"
-	os.Remove(tmpPath) //nolint:errcheck // best-effort cleanup
+	os.Remove(tmpPath)
 
 	if _, err := os.Stat(binPath); err == nil {
 		if !isValidBinary(binPath) {
-		os.Remove(binPath) //nolint:errcheck // best-effort cleanup
+		os.Remove(binPath)
 		} else {
 			if runtime.GOOS != "windows" {
-			os.Chmod(binPath, 0o755) //nolint:errcheck // best-effort chmod
+			os.Chmod(binPath, 0o755)
 			}
 			return nil
 		}
@@ -170,10 +170,10 @@ func doEnsure(dataDir string) error {
 
 	if isArchive {
 		if err := extractTGZ(downloadDest, binDir); err != nil {
-		os.Remove(downloadDest) //nolint:errcheck // best-effort cleanup
+		os.Remove(downloadDest)
 			return fmt.Errorf("extract cloudflared: %w", err)
 		}
-	os.Remove(downloadDest) //nolint:errcheck // best-effort cleanup
+	os.Remove(downloadDest)
 	} else {
 		if err := os.Rename(downloadDest, binPath); err != nil {
 			return fmt.Errorf("rename binary: %w", err)
@@ -181,7 +181,7 @@ func doEnsure(dataDir string) error {
 	}
 
 	if runtime.GOOS != "windows" {
-		os.Chmod(binPath, 0o755) //nolint:errcheck // best-effort chmod
+		os.Chmod(binPath, 0o755)
 	}
 	return nil
 }
@@ -193,7 +193,7 @@ func downloadFile(rawURL, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck // best-effort close
+	defer f.Close()
 
 	dlState.Downloading.Store(true)
 	dlState.Progress.Store(0)
@@ -204,26 +204,26 @@ func downloadFile(rawURL, dest string) error {
 
 	req, err := http.NewRequestWithContext(context.Background(), "GET", rawURL, nil)
 	if err != nil {
-		os.Remove(dest) //nolint:errcheck // best-effort cleanup
+		os.Remove(dest)
 		return err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		_ = os.Remove(dest) //nolint:errcheck // best-effort cleanup
+		_ = os.Remove(dest)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusMovedPermanently || resp.StatusCode == http.StatusFound ||
 		resp.StatusCode == http.StatusSeeOther || resp.StatusCode == http.StatusTemporaryRedirect ||
 		resp.StatusCode == http.StatusPermanentRedirect {
-		f.Close() //nolint:errcheck // best-effort close
-		os.Remove(dest) //nolint:errcheck // best-effort cleanup
+		f.Close()
+		os.Remove(dest)
 		return downloadFile(resp.Header.Get("Location"), dest)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		f.Close() //nolint:errcheck // best-effort close
-		os.Remove(dest) //nolint:errcheck // best-effort cleanup
+		f.Close()
+		os.Remove(dest)
 		return fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
@@ -234,7 +234,7 @@ func downloadFile(rawURL, dest string) error {
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
 			if _, werr := f.Write(buf[:n]); werr != nil {
-				os.Remove(dest) //nolint:errcheck // best-effort cleanup
+				os.Remove(dest)
 				return werr
 			}
 			receivedBytes += int64(n)
@@ -246,7 +246,7 @@ func downloadFile(rawURL, dest string) error {
 			break
 		}
 		if err != nil {
-			os.Remove(dest) //nolint:errcheck // best-effort cleanup
+			os.Remove(dest)
 			return err
 		}
 	}
@@ -260,13 +260,13 @@ func extractTGZ(tgzPath, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck // best-effort close
+	defer f.Close()
 
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
-	defer gz.Close() //nolint:errcheck // best-effort close
+	defer gz.Close()
 
 	tr := tar.NewReader(gz)
 	for {
@@ -288,10 +288,10 @@ func extractTGZ(tgzPath, destDir string) error {
 			return err
 		}
 		if _, err := io.Copy(out, tr); err != nil {
-			out.Close() //nolint:errcheck // best-effort close
+			out.Close()
 			return err
 		}
-		out.Close() //nolint:errcheck // best-effort close
+		out.Close()
 		return nil
 	}
 	return fmt.Errorf("cloudflared binary not found in archive")

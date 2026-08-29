@@ -13,10 +13,10 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`{"error":{"message":"internal error","type":"server_error"}}`)) //nolint:errcheck // best-effort write
+		_, _ = w.Write([]byte(`{"error":{"message":"internal error","type":"server_error"}}`))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_, _ = w.Write(data) //nolint:errcheck // best-effort write
+	_, _ = w.Write(data)
 }

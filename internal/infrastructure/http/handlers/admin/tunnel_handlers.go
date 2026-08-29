@@ -34,7 +34,7 @@ func (s *Handler) adminTailscaleInstall(w http.ResponseWriter, r *http.Request) 
 		SudoPassword string `json:"sudoPassword"`
 	}
 	if r.Body != nil {
-		json.NewDecoder(r.Body).Decode(&body) //nolint:errcheck // best-effort decode
+		json.NewDecoder(r.Body).Decode(&body)
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")

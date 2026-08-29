@@ -39,7 +39,7 @@ func TestCanTransition(t *testing.T) {
 
 func TestTransition_Valid(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	assert.Equal(t, StateActive, mod.State())
@@ -53,7 +53,7 @@ func TestTransition_Valid(t *testing.T) {
 
 func TestTransition_Invalid(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	assert.Equal(t, StateActive, mod.State())
@@ -65,7 +65,7 @@ func TestTransition_Invalid(t *testing.T) {
 
 func TestTransition_FullCycle(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 
@@ -89,7 +89,7 @@ func TestTransition_FullCycle(t *testing.T) {
 
 func TestTransitionToError(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	assert.NoError(t, TransitionToError(mod, logEntry(), "panic: nil pointer"))
@@ -99,7 +99,7 @@ func TestTransitionToError(t *testing.T) {
 
 func TestTransitionToActive_Rollback(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	mod.SetState(StateUpdating)
@@ -111,7 +111,7 @@ func TestTransitionToActive_Rollback(t *testing.T) {
 
 func TestTransitionToActive_Upgrade(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	mod := NewModule(e, "test-ext", 4)
 	mod.SetState(StateUpdating)
@@ -132,7 +132,7 @@ func TestStateName(t *testing.T) {
 
 func TestReinstall_Success(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	// Pre-compile so module exists for Reinstall to update.
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
@@ -153,7 +153,7 @@ func TestReinstall_Success(t *testing.T) {
 
 func TestReinstall_CompileFailure(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	// Pre-compile so module exists.
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
@@ -175,7 +175,7 @@ func TestReinstall_CompileFailure(t *testing.T) {
 
 func TestReinstall_InvalidTransition(t *testing.T) {
 	e := newEngineForTest(t)
-	defer e.Close() //nolint:errcheck // best-effort close
+	defer e.Close()
 
 	require.NoError(t, e.Compile(context.Background(), "test-ext", compileMinimalWASM(t), ExtensionConfig{
 		Slug: "test-ext",

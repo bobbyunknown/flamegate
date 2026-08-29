@@ -100,8 +100,13 @@ func (t *CodexTool) Remove(homeDir string) error {
 			if len(cfg) == 0 {
 				_ = os.Remove(configPath)
 			} else {
-				data, _ := toml.Marshal(cfg)
-				writeString(configPath, string(data)) //nolint:errcheck // best-effort
+				data, err := toml.Marshal(cfg)
+				if err != nil {
+					return err
+				}
+				if err := writeString(configPath, string(data)); err != nil {
+					return err
+				}
 			}
 		}
 	}

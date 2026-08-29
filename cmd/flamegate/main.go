@@ -49,7 +49,6 @@ var Version = "dev"
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		if !errors.Is(err, errSilent) {
-			//nolint:errcheck // best-effort stderr output
 			fmt.Fprintln(os.Stderr, "flamegate:", err)
 		}
 		os.Exit(1)
@@ -97,7 +96,6 @@ func run(args []string) error {
 }
 
 func printUsage(w *os.File) {
-	//nolint:errcheck // best-effort write
 	_, _ = fmt.Fprint(w, `FlameGate — self-hostable AI gateway
 
 Usage:
@@ -122,7 +120,7 @@ Examples:
   flamegate bootstrap             # mint your first API key
   flamegate bootstrap -k prod     # mint a named API key
   flamegate status                # is it running?
-`) //nolint:errcheck // best-effort
+`)
 }
 
 // resolveConfigFlag registers -c and --config on fs, returns -c pointer.
@@ -361,7 +359,7 @@ func runHealthcheck(cfg config.Config) error {
 	if err != nil {
 		return fmt.Errorf("healthcheck %s: %w", url, err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("healthcheck %s: %s", url, resp.Status)
 	}
@@ -411,7 +409,7 @@ func openDashboardWhenReady(ctx context.Context, cfg config.Config) {
 			if err != nil {
 				continue
 			}
-			resp.Body.Close() //nolint:errcheck // best-effort close
+			resp.Body.Close()
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				openBrowser(dashboardURL(cfg))
 				return

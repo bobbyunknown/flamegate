@@ -130,7 +130,7 @@ func (c *Gemini) Stream(ctx context.Context, req *core.ChatRequest, creds core.C
 	out := make(chan core.StreamChunk, 16)
 	go func() {
 		defer close(out)
-		defer resp.Body.Close() //nolint:errcheck // best-effort close
+		defer resp.Body.Close()
 
 		ttft := newTTFTTracker(cfg)
 

@@ -62,7 +62,6 @@ func RegisterDocs(r chi.Router, spec *huma.OpenAPI) {
 
 	r.Get("/docs", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		//nolint:errcheck // best-effort write
 		_, _ = fmt.Fprint(w, scalarDocsHTML)
 	})
 }

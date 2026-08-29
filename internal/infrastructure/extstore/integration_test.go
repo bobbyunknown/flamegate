@@ -25,7 +25,7 @@ func TestInstallerRealRepo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close() //nolint:errcheck
+	defer db.Close()
 	if err := db.Migrate(); err != nil {
 		t.Fatal(err)
 	}

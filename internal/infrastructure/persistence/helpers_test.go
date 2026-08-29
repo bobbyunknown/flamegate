@@ -23,7 +23,7 @@ func newPersistenceTestDB(t *testing.T) *DB {
 	db, err := OpenDB("sqlite", ":memory:")
 	require.NoError(t, err, "open sqlite")
 	require.NoError(t, db.Migrate(), "migrate")
-	t.Cleanup(func() { _ = db.Close() }) //nolint:errcheck // best-effort close
+	t.Cleanup(func() { _ = db.Close() })
 
 	return db
 }

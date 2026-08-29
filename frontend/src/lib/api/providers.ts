@@ -3,10 +3,32 @@ import type { Provider, ProviderModel, ProviderRoutingSettings, CustomProvider, 
 
 export const providers = () => request<{ providers: Provider[] }>("GET", "/providers");
 
-export const providerModels = (id: string, kind?: string) =>
+export const providerModels = (id: string, kind?: string, refresh?: boolean) =>
   request<{ models: ProviderModel[] }>(
     "GET",
-    `/providers/${id}/models${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`,
+    `/providers/${id}/models?${new URLSearchParams({
+      ...(kind ? { kind } : {}),
+      ...(refresh ? { refresh: "true" } : {}),
+    }).toString()}`,
+  );
+
+export const syncProviderModels = (id: string) =>
+  providerModels(id, undefined, true);
+
+export const deleteProviderModel = (id: string, modelId: string) =>
+  request<{ provider: string; cleared: number }>(
+    "DELETE",
+    `/providers/${id}/models?model_id=${encodeURIComponent(modelId)}`,
+  );
+
+export const clearProviderModels = (id: string) =>
+  request<{ provider: string; cleared: number }>("DELETE", `/providers/${id}/models`);
+
+export const bulkDeleteProviderModels = (id: string, modelIds: string[]) =>
+  request<{ provider: string; deleted: number }>(
+    "POST",
+    `/providers/${id}/models/bulk-delete`,
+    { model_ids: modelIds },
   );
 
 export const providerRouting = (id: string) =>

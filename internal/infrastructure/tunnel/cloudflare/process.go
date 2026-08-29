@@ -156,7 +156,7 @@ func SpawnQuickTunnel(dataDir string, localPort int, log *logrus.Logger) (*Quick
 			}
 			return nil, fmt.Errorf("cloudflared exited: %v (last log: %s)", err, strings.TrimSpace(tail))
 		case <-timeout:
-			cmd.Process.Kill() //nolint:errcheck // best-effort kill
+			cmd.Process.Kill()
 			mu.Lock()
 			tail := logTail.String()
 			mu.Unlock()
@@ -175,7 +175,7 @@ func KillCloudflared(dataDir string, localPort int) {
 	pid := tunnel.LoadPID(dataDir)
 	if pid > 0 {
 		if p, err := os.FindProcess(pid); err == nil {
-			p.Kill() //nolint:errcheck // best-effort kill
+			p.Kill()
 		}
 		tunnel.ClearPID(dataDir)
 	}
@@ -191,7 +191,7 @@ func killByPort(port int) {
 		// PowerShell: find and kill cloudflared processes targeting the port.
 		cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command",
 			fmt.Sprintf(`Get-CimInstance Win32_Process -Filter "Name='cloudflared.exe'" | Where-Object { $_.CommandLine -match ':%d(\D|$)' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`, port))
-		cmd.Run() //nolint:errcheck // best-effort exec
+		cmd.Run()
 	} else {
 		cmd := exec.Command("pkill", "-f", fmt.Sprintf("cloudflared.*:%d([^0-9]|$)", port))
 		_ = cmd.Run()
@@ -206,7 +206,7 @@ func IsCloudflaredRunning(dataDir string) bool {
 	}
 	p, err := os.FindProcess(pid)
 	if err != nil {
-		return false //nolint:nilerr // best-effort process check
+		return false
 	}
 	// Signal 0 checks existence without killing the process.
 	return p.Signal(syscall.Signal(0)) == nil

@@ -146,7 +146,7 @@ func doJSON(ctx context.Context, provider, model, url string, body []byte, heade
 	if err != nil {
 		return nil, transportError(ctx, provider, model, err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes))
 	if err != nil {
@@ -182,7 +182,7 @@ func doJSONDecode(ctx context.Context, provider, model, url string, body []byte,
 		return nil, nil, transportError(ctx, provider, model, err)
 	}
 	if resp.StatusCode >= 400 {
-		defer resp.Body.Close() //nolint:errcheck // best-effort close
+		defer resp.Body.Close()
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 		return nil, nil, httpStatusError(provider, model, resp, errBody)
 	}
@@ -214,7 +214,7 @@ func doJSONMethod(ctx context.Context, method, provider, model, url string, body
 	if err != nil {
 		return nil, transportError(ctx, provider, model, err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes))
 	if err != nil {
@@ -251,7 +251,7 @@ func doRaw(ctx context.Context, provider, model, url string, body []byte, header
 	if err != nil {
 		return nil, transportError(ctx, provider, model, err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes))
 	if err != nil {
@@ -305,7 +305,7 @@ func doMultipart(ctx context.Context, provider, model, url, fileField, filename 
 	if err != nil {
 		return nil, transportError(ctx, provider, model, err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes))
 	if err != nil {
@@ -336,7 +336,7 @@ func openStream(ctx context.Context, provider, model, url string, body []byte, h
 		return nil, transportError(ctx, provider, model, err)
 	}
 	if resp.StatusCode >= 400 {
-		defer resp.Body.Close() //nolint:errcheck // best-effort close
+		defer resp.Body.Close()
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 		return nil, httpStatusError(provider, model, resp, errBody)
 	}

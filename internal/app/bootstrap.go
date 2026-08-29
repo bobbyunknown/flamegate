@@ -32,7 +32,7 @@ func Bootstrap(ctx context.Context, cfg config.Config, name string) (string, err
 	if err != nil {
 		return "", err
 	}
-	defer db.Close() //nolint:errcheck // best-effort close
+	defer db.Close()
 
 	if err := db.Migrate(); err != nil {
 		return "", fmt.Errorf("bootstrap: migrate: %w", err)

@@ -92,7 +92,7 @@ func (e *APIEmbedder) Embed(ctx context.Context, text string) ([]float32, error)
 	if err != nil {
 		return nil, fmt.Errorf("embedder: http call: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MiB cap
 	if err != nil {

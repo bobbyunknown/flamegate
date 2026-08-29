@@ -138,7 +138,6 @@ func cmdExt(args []string) error {
 }
 
 func printExtUsage(w *os.File) {
-	//nolint:errcheck // best-effort write
 	fmt.Fprint(w, `Usage: flamegate ext <command> [flags]
 
 Commands:
@@ -181,8 +180,8 @@ func cmdExtInstall(args []string) error {
 		if err != nil {
 			return err
 		}
-		defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
-		defer deps.engine.Close()   //nolint:errcheck // best-effort close
+		defer deps.db.SQL().Close()
+		defer deps.engine.Close()
 
 		res, err := deps.store.Install(context.Background(), source)
 		if err != nil {
@@ -198,8 +197,8 @@ func cmdExtInstall(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
-	defer deps.engine.Close() //nolint:errcheck // best-effort close
+	defer deps.db.SQL().Close()
+	defer deps.engine.Close()
 
 	ctx := context.Background()
 
@@ -317,8 +316,8 @@ func cmdExtUninstall(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
-	defer deps.engine.Close() //nolint:errcheck // best-effort close
+	defer deps.db.SQL().Close()
+	defer deps.engine.Close()
 
 	ctx := context.Background()
 	ext, err := deps.db.Extensions().FindBySlug(ctx, slug)
@@ -338,7 +337,7 @@ func cmdExtUninstall(args []string) error {
 
 	if ext.WasmPath != "" {
 		dir := filepath.Dir(ext.WasmPath)
-		_ = os.RemoveAll(dir) //nolint:errcheck // best-effort cleanup
+		_ = os.RemoveAll(dir)
 	}
 
 	fmt.Printf("Extension %q uninstalled\n", slug)
@@ -357,8 +356,8 @@ func cmdExtList(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
-	defer deps.engine.Close() //nolint:errcheck // best-effort close
+	defer deps.db.SQL().Close()
+	defer deps.engine.Close()
 
 	ctx := context.Background()
 	exts, err := deps.db.Extensions().List(ctx, schema.DefaultTenantID)
@@ -407,8 +406,8 @@ func cmdExtSetState(args []string, state string) error {
 	if err != nil {
 		return err
 	}
-	defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
-	defer deps.engine.Close() //nolint:errcheck // best-effort close
+	defer deps.db.SQL().Close()
+	defer deps.engine.Close()
 
 	ctx := context.Background()
 	ext, err := deps.db.Extensions().FindBySlug(ctx, slug)
@@ -491,8 +490,8 @@ func cmdExtUpdate(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
-	defer deps.engine.Close()   //nolint:errcheck // best-effort close
+	defer deps.db.SQL().Close()
+	defer deps.engine.Close()
 
 	ctx := context.Background()
 	ext, err := deps.db.Extensions().FindBySlug(ctx, slug)
@@ -534,8 +533,8 @@ func cmdExtStore(args []string) error {
 	if err != nil {
 		return err
 	}
-	defer deps.db.SQL().Close() //nolint:errcheck // best-effort close
-	defer deps.engine.Close()   //nolint:errcheck // best-effort close
+	defer deps.db.SQL().Close()
+	defer deps.engine.Close()
 
 	return storeList(deps)
 }

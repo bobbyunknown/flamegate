@@ -98,7 +98,7 @@ func (e *PresidioEngine) Recognize(ctx context.Context, text string, allowed map
 	if err != nil {
 		return nil, fmt.Errorf("pii/presidio: http: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if err != nil {

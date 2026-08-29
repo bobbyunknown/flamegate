@@ -152,7 +152,7 @@ func (c *Checker) fetch(ctx context.Context) (*Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))

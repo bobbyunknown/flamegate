@@ -48,7 +48,7 @@ func TestCheckerFetchAndCache(t *testing.T) {
 			PublishedAt: "2026-06-01T00:00:00Z",
 		})
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewChecker("v0.1.0", "bobbyunknown/flamegate")
 	// Point the checker at the test server by overriding fetch URL via a custom

@@ -208,14 +208,16 @@ func (p *Pipeline) Chat(ctx context.Context, req *core.ChatRequest, opts Options
 		p.budgetRelease(scope)
 		// Record cache hit for usage visibility.
 		if p.meter != nil {
-			p.meter.Record(ctx, meter.Event{ //nolint:errcheck // best-effort metering
+			if _, err := p.meter.Record(ctx, meter.Event{
 				TenantID:  req.Metadata.TenantID,
 				ProjectID: req.Metadata.ProjectID,
 				APIKeyID:  req.Metadata.APIKeyID,
 				Provider:  "cache",
 				Model:     hit.Model,
 				CacheHit:  true,
-			})
+			}); err != nil {
+				p.log.WithError(err).Warn("record cache hit meter")
+			}
 		}
 		if p.metrics != nil {
 			p.metrics.RecordCache(true)
@@ -1489,7 +1491,7 @@ func extractUsageFromSSEData(data []byte) *core.Usage {
 	}
 	var env sseUsageEnvelope
 	if err := json.Unmarshal(data, &env); err != nil {
-		return nil //nolint:nilerr // best-effort parser
+		return nil
 	}
 	u := &core.Usage{}
 	// Top-level usage (OpenAI format, or Anthropic message_delta).

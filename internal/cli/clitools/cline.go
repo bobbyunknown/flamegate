@@ -70,9 +70,9 @@ func (t *ClineTool) Remove(homeDir string) error {
 				delete(cfg, k)
 			}
 			if len(cfg) == 0 {
-				os.Remove(gsPath) //nolint:errcheck // best-effort cleanup
-			} else {
-				writeJSON(gsPath, cfg) //nolint:errcheck // best-effort
+				os.Remove(gsPath)
+			} else if err := writeJSON(gsPath, cfg); err != nil {
+				return err
 			}
 		}
 	}
@@ -82,9 +82,9 @@ func (t *ClineTool) Remove(homeDir string) error {
 		if err := readJSON(secPath, &sec); err == nil {
 			delete(sec, "openAiApiKey")
 			if len(sec) == 0 {
-				os.Remove(secPath) //nolint:errcheck // best-effort cleanup
-			} else {
-				writeJSON(secPath, sec) //nolint:errcheck // best-effort
+				os.Remove(secPath)
+			} else if err := writeJSON(secPath, sec); err != nil {
+				return err
 			}
 		}
 	}

@@ -27,9 +27,9 @@ func TestAPIEmbedder_Embed(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp) //nolint:errcheck // best-effort
+		json.NewEncoder(w).Encode(resp)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	emb := NewAPIEmbedder(APIEmbedderConfig{
 		BaseURL: srv.URL + "/v1",
@@ -55,13 +55,13 @@ func TestAPIEmbedder_EmbedDifferentTexts(t *testing.T) {
 		} else {
 			vec = []float32{0.85, 0.15, 0.05}
 		}
-		json.NewEncoder(w).Encode(embeddingResponse{ //nolint:errcheck // best-effort
+		json.NewEncoder(w).Encode(embeddingResponse{
 			Data: []struct {
 				Embedding []float32 `json:"embedding"`
 			}{{Embedding: vec}},
 		})
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	emb := NewAPIEmbedder(APIEmbedderConfig{BaseURL: srv.URL, Dims: 3})
 
@@ -82,9 +82,9 @@ func TestAPIEmbedder_EmbedDifferentTexts(t *testing.T) {
 func TestAPIEmbedder_APIError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal server error")) //nolint:errcheck // best-effort
+		w.Write([]byte("internal server error"))
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	emb := NewAPIEmbedder(APIEmbedderConfig{BaseURL: srv.URL, Dims: 3})
 	_, err := emb.Embed(context.Background(), "test")
@@ -94,9 +94,9 @@ func TestAPIEmbedder_APIError(t *testing.T) {
 
 func TestAPIEmbedder_EmptyResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(embeddingResponse{Data: nil}) //nolint:errcheck // best-effort
+		json.NewEncoder(w).Encode(embeddingResponse{Data: nil})
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	emb := NewAPIEmbedder(APIEmbedderConfig{BaseURL: srv.URL, Dims: 3})
 	_, err := emb.Embed(context.Background(), "test")
@@ -107,13 +107,13 @@ func TestAPIEmbedder_EmptyResponse(t *testing.T) {
 func TestAPIEmbedder_APIErrorMessage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(embeddingResponse{ //nolint:errcheck // test helper
+		json.NewEncoder(w).Encode(embeddingResponse{
 			Error: &struct {
 				Message string `json:"message"`
 			}{Message: "invalid model"},
 		})
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	emb := NewAPIEmbedder(APIEmbedderConfig{BaseURL: srv.URL, Dims: 3})
 	_, err := emb.Embed(context.Background(), "test")

@@ -52,6 +52,11 @@ func (r *ExtensionModelRepo) Delete(ctx context.Context, id string) error {
 	return r.db.WithContext(ctx).Delete(&schema.ExtensionModel{}, "id = ?", id).Error
 }
 
+func (r *ExtensionModelRepo) DeleteBySlug(ctx context.Context, extensionID, slug string) error {
+	return r.db.WithContext(ctx).Where("extension_id = ? AND (slug = ? OR id = ?)", extensionID, slug, extensionID+"/"+slug).
+		Delete(&schema.ExtensionModel{}).Error
+}
+
 func (r *ExtensionModelRepo) DeleteBySource(ctx context.Context, extensionID, source string) error {
 	return r.db.WithContext(ctx).Where("extension_id = ? AND source = ?", extensionID, source).
 		Delete(&schema.ExtensionModel{}).Error

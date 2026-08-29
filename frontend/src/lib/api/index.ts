@@ -14,7 +14,8 @@ export { fetchPortalBranding, fetchKeyUsage, fetchKeyUsageById } from "./portal"
 // Import all domain functions
 import { authStatus, login, logout, changePassword, completeOnboarding } from "./auth";
 import {
-  providers, providerModels, providerRouting, updateProviderRouting,
+  providers, providerModels, syncProviderModels, deleteProviderModel, clearProviderModels, bulkDeleteProviderModels,
+  providerRouting, updateProviderRouting,
   listCustomProviders, createCustomProvider, updateCustomProvider, deleteCustomProvider,
   listCustomModels, createCustomModel, updateCustomModel, deleteCustomModel,
 } from "./providers";
@@ -56,7 +57,7 @@ import {
   qoderDeviceStart, qoderDevicePoll,
   kilocodeDeviceStart, kilocodeDevicePoll,
   codebuddyAuthStart, codebuddyAuthPoll,
-  cursorImport, commandcodeImport,
+  cursorImport, commandcodeImport, oauthStart, oauthExchange,
 } from "./connectors";
 import { systemMonitor, systemHistory } from "./system";
 import {
@@ -72,7 +73,8 @@ export const api = {
   authStatus, login, logout, changePassword, completeOnboarding,
 
   // Providers
-  providers, providerModels, providerRouting, updateProviderRouting,
+  providers, providerModels, syncProviderModels, deleteProviderModel, clearProviderModels, bulkDeleteProviderModels,
+  providerRouting, updateProviderRouting,
   listCustomProviders, createCustomProvider, updateCustomProvider, deleteCustomProvider,
   listCustomModels, createCustomModel, updateCustomModel, deleteCustomModel,
 
@@ -82,6 +84,8 @@ export const api = {
 
   // Extensions Store (remote install)
   listStoreExtensions, getStoreExtension, installRemoteExtension, updateRemoteExtension,
+  // Per-extension OAuth (host gateway)
+  oauthStart, oauthExchange,
 
   // Plans
   listPlans, createPlan, updatePlan, deletePlan, listPlanKeys,

@@ -39,7 +39,9 @@ func StartLogin(dataDir string, hostname string) (*LoginResult, error) {
 	}
 
 	// Ensure daemon is running (best-effort, no sudo).
-	go StartDaemon(dataDir, "", logrus.StandardLogger()) //nolint:errcheck // background daemon
+	go func() {
+		_ = StartDaemon(dataDir, "", logrus.StandardLogger())
+	}()
 
 	// Check if already logged in.
 	if IsLoggedIn(dataDir) {
@@ -88,7 +90,7 @@ func StartLogin(dataDir string, hostname string) (*LoginResult, error) {
 		select {
 		case <-done:
 			if result != nil {
-				cmd.Process.Kill() //nolint:errcheck // best-effort kill
+				cmd.Process.Kill()
 				return result, nil
 			}
 			// Process exited without auth URL.
@@ -103,11 +105,11 @@ func StartLogin(dataDir string, hostname string) (*LoginResult, error) {
 		case <-statusPoll.C:
 			if status, err := GetStatus(dataDir); err == nil && status.AuthURL != "" {
 				result = &LoginResult{AuthURL: status.AuthURL}
-				cmd.Process.Kill() //nolint:errcheck // best-effort kill
+				cmd.Process.Kill()
 				return result, nil
 			}
 		case <-timeout:
-			cmd.Process.Kill() //nolint:errcheck // best-effort kill
+			cmd.Process.Kill()
 			// Final check.
 			if IsLoggedIn(dataDir) {
 				return &LoginResult{AlreadyLoggedIn: true}, nil
@@ -128,7 +130,7 @@ func StartFunnel(dataDir string, port int) (*FunnelResult, error) {
 	}
 
 	// Reset existing funnel.
-	exec.Command(bin, tsArgs(dataDir, "funnel", "--bg", "reset")...).Run() //nolint:errcheck // best-effort exec
+	exec.Command(bin, tsArgs(dataDir, "funnel", "--bg", "reset")...).Run()
 
 	args := tsArgs(dataDir, "funnel", "--bg", fmt.Sprintf("%d", port))
 	cmd := exec.Command(bin, args...)
@@ -170,7 +172,7 @@ func StartFunnel(dataDir string, port int) (*FunnelResult, error) {
 		select {
 		case <-done:
 			if result != nil {
-				cmd.Process.Kill() //nolint:errcheck // best-effort kill
+				cmd.Process.Kill()
 				return result, nil
 			}
 			// Process exited — try to get URL from status.
@@ -179,7 +181,7 @@ func StartFunnel(dataDir string, port int) (*FunnelResult, error) {
 			}
 			return nil, fmt.Errorf("funnel exited without URL: %s", strings.TrimSpace(output.String()))
 		case <-timeout:
-			cmd.Process.Kill() //nolint:errcheck // best-effort kill
+			cmd.Process.Kill()
 			// --bg exits after setup, read actual hostname from status.
 			if url := GetFunnelURL(dataDir); url != "" {
 				return &FunnelResult{TunnelURL: url}, nil
@@ -195,7 +197,7 @@ func StopFunnel(dataDir string) {
 	if bin == "" {
 		return
 	}
-	exec.Command(bin, tsArgs(dataDir, "funnel", "--bg", "reset")...).Run() //nolint:errcheck // best-effort exec
+	exec.Command(bin, tsArgs(dataDir, "funnel", "--bg", "reset")...).Run()
 }
 
 // ProvisionCert provisions a TLS certificate for the funnel domain.
@@ -206,7 +208,7 @@ func ProvisionCert(dataDir string, hostname string, log *logrus.Logger) {
 		return
 	}
 	certsDir := filepath.Join(TailscaleDir(dataDir), "certs")
-	os.MkdirAll(certsDir, 0o700) //nolint:errcheck // best-effort mkdir
+	os.MkdirAll(certsDir, 0o700)
 	certFile := filepath.Join(certsDir, hostname+".crt")
 	keyFile := filepath.Join(certsDir, hostname+".key")
 

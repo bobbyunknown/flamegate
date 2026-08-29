@@ -42,11 +42,12 @@ type WASMConnector struct {
 
 // guestRequest is the JSON payload sent to the WASM guest's invoke function.
 type guestRequest struct {
-	Model    string            `json:"model"`
-	Messages json.RawMessage   `json:"messages"`
-	Stream   bool              `json:"stream"`
-	Headers  map[string]string `json:"headers,omitempty"`
-	Extra    map[string]any    `json:"extra,omitempty"`
+	Model      string            `json:"model"`
+	Messages   json.RawMessage   `json:"messages"`
+	Stream     bool              `json:"stream"`
+	Capability string            `json:"capability,omitempty"`
+	Headers    map[string]string `json:"headers,omitempty"`
+	Extra      map[string]any    `json:"extra,omitempty"`
 }
 
 // guestResponse is the JSON payload returned by the WASM guest's invoke function.
@@ -250,7 +251,7 @@ func (c *WASMConnector) Chat(ctx context.Context, req *core.ChatRequest, creds c
 	if err != nil {
 		return nil, fmt.Errorf("wasm: write request: %w", err)
 	}
-	defer deallocGuest(ctx, inst, reqPtr, reqSize) //nolint:errcheck // best-effort dealloc
+	defer func() { _ = deallocGuest(ctx, inst, reqPtr, reqSize) }()
 
 	// Call invoke.
 	invokeFn := inst.ExportedFunction("invoke")
@@ -363,7 +364,7 @@ func (c *WASMConnector) Stream(ctx context.Context, req *core.ChatRequest, creds
 	go func() {
 		defer close(ch)
 		defer c.module.Release(inst)
-		defer deallocGuest(ctx, inst, reqPtr, reqSize) //nolint:errcheck // best-effort dealloc
+		defer func() { _ = deallocGuest(ctx, inst, reqPtr, reqSize) }()
 		if c.engine.metrics != nil {
 			defer c.engine.metrics.WASMInstancesActive.Dec()
 			defer func() {

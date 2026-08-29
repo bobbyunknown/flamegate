@@ -20,23 +20,23 @@ func modelsServer(t *testing.T, status int) *httptest.Server {
 		w.Header().Set("Content-Type", "application/json")
 		if status >= 400 {
 			w.WriteHeader(status)
-			_, _ = w.Write([]byte(`{"error":"unauthorized"}`)) //nolint:errcheck // best-effort write
+			_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"m1"}]}`)) //nolint:errcheck // best-effort write
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"m1"}]}`))
 	}))
 }
 
 func TestGemini_Validate(t *testing.T) {
 	t.Run("valid key", func(t *testing.T) {
 		srv := modelsServer(t, http.StatusOK)
-		defer srv.Close() //nolint:errcheck // best-effort close
+		defer srv.Close()
 		c := NewGemini("gemini", srv.URL)
 		require.NoError(t, c.Validate(context.Background(), core.Credentials{APIKey: "k", BaseURL: srv.URL}))
 	})
 	t.Run("rejected key", func(t *testing.T) {
 		srv := modelsServer(t, http.StatusUnauthorized)
-		defer srv.Close() //nolint:errcheck // best-effort close
+		defer srv.Close()
 		c := NewGemini("gemini", srv.URL)
 		require.Error(t, c.Validate(context.Background(), core.Credentials{APIKey: "bad", BaseURL: srv.URL}))
 	})

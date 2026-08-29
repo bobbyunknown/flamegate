@@ -15,11 +15,11 @@ func (s *Handler) loadDisabledModels(ctx context.Context, provider string) []str
 	}
 	raw, err := s.settings.Get(ctx, disabledModelsPrefix+provider)
 	if err != nil || raw == "" {
-		return nil //nolint:nilerr // best-effort loader
+		return nil
 	}
 	var ids []string
 	if err := json.Unmarshal([]byte(raw), &ids); err != nil {
-		return nil //nolint:nilerr // best-effort loader
+		return nil
 	}
 	return ids
 }

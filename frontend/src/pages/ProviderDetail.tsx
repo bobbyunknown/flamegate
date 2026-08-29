@@ -12,6 +12,7 @@ import { KilocodeConnectModal } from "../components/KilocodeConnectModal";
 import { CodebuddyConnectModal } from "../components/CodebuddyConnectModal";
 import { CursorConnectModal } from "../components/CursorConnectModal";
 import { CommandCodeConnectModal } from "../components/CommandCodeConnectModal";
+import { ExtensionOAuthModal } from "../components/ExtensionOAuthModal";
 import { CustomModelsSection } from "../components/CustomModelsSection";
 import { useToast } from "../components/Toast";
 import { parseKeys } from "../lib/bulk";
@@ -61,6 +62,7 @@ export function ProviderDetailPage() {
 
   const provider = providers.data?.providers.find((p) => p.id === id);
   const myAccounts = (accounts.data?.accounts ?? []).filter((a) => a.provider === id);
+  const allModels = models.data?.models ?? [];
 
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -78,11 +80,13 @@ export function ProviderDetailPage() {
   const [codebuddyOpen, setCodebuddyOpen] = useState(false);
   const [cursorOpen, setCursorOpen] = useState(false);
   const [commandcodeOpen, setCommandcodeOpen] = useState(false);
+  const [extensionOAuthOpen, setExtensionOAuthOpen] = useState(false);
   const [addKeyOpen, setAddKeyOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
 
   // Model search and pagination
   const [modelSearchQuery, setModelSearchQuery] = useState("");
+  const [modelCategoryFilter, setModelCategoryFilter] = useState<"all" | "free" | "frontier" | "clinepass">("all");
   const [modelPage, setModelPage] = useState(1);
   const MODELS_PER_PAGE = 12;
 
@@ -103,19 +107,38 @@ export function ProviderDetailPage() {
   };
 
   const filteredModels = useMemo(() => {
-    if (!models.data?.models) return [];
-    if (!modelSearchQuery.trim()) return models.data.models;
+    let list = allModels;
+
+    if (modelCategoryFilter === "free") {
+      list = list.filter((m) =>
+        m.id.toLowerCase().includes("free") ||
+        (m.name && m.name.toLowerCase().includes("free")) ||
+        m.id.endsWith(":free")
+      );
+    } else if (modelCategoryFilter === "frontier") {
+      list = list.filter((m) =>
+        m.name && m.name.toLowerCase().includes("frontier")
+      );
+    } else if (modelCategoryFilter === "clinepass") {
+      list = list.filter((m) =>
+        m.id.toLowerCase().includes("cline-pass") ||
+        (m.name && m.name.toLowerCase().includes("clinepass"))
+      );
+    }
+
+    if (!modelSearchQuery.trim()) return list;
     const lowerQ = modelSearchQuery.toLowerCase();
-    return models.data.models.filter(m => 
-      m.id.toLowerCase().includes(lowerQ) || 
-      (m.name && m.name.toLowerCase().includes(lowerQ)) ||
-      (m.kind && m.kind.toLowerCase().includes(lowerQ))
+    return list.filter(
+      (m) =>
+        m.id.toLowerCase().includes(lowerQ) ||
+        (m.name && m.name.toLowerCase().includes(lowerQ)) ||
+        (m.kind && m.kind.toLowerCase().includes(lowerQ))
     );
-  }, [models.data?.models, modelSearchQuery]);
+  }, [allModels, modelSearchQuery, modelCategoryFilter]);
 
   useEffect(() => {
     setModelPage(1);
-  }, [modelSearchQuery]);
+  }, [modelSearchQuery, modelCategoryFilter]);
 
   const totalModelPages = Math.ceil(filteredModels.length / MODELS_PER_PAGE);
   const paginatedModels = filteredModels.slice(
@@ -226,6 +249,48 @@ export function ProviderDetailPage() {
       toast.success("Models re-enabled", "Selected models are available for routing again.");
     },
     onError: (e: Error) => toast.error("Couldn't enable models", e.message),
+  });
+
+  const deleteModelMut = useMutation({
+    mutationFn: async (modelId: string) => {
+      if (!id) return;
+      await api.deleteProviderModel(id, modelId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["provider-models", id] });
+      toast.success("Model deleted", "Model was removed from database.");
+    },
+    onError: (e: Error) => toast.error("Delete failed", e.message),
+  });
+
+  const bulkDeleteModelsMut = useMutation({
+    mutationFn: async (modelIds: string[]) => {
+      if (!id || modelIds.length === 0) return;
+      await api.bulkDeleteProviderModels(id, modelIds);
+    },
+    onSuccess: () => {
+      setSelectedModelIds(new Set());
+      qc.invalidateQueries({ queryKey: ["provider-models", id] });
+      toast.success("Models deleted", "Selected models were removed from database.");
+    },
+    onError: (e: Error) => toast.error("Bulk delete failed", e.message),
+  });
+
+  const syncModelsMut = useMutation({
+    mutationFn: async () => {
+      if (!id) return;
+      try {
+        await api.syncExtensionModels(id);
+      } catch {
+        // Fallback for native/custom providers
+      }
+      await api.syncProviderModels(id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["provider-models", id] });
+      toast.success("Models synced", "Models refreshed from extension.");
+    },
+    onError: (e: Error) => toast.error("Sync failed", e.message),
   });
 
   const updateRouting = useMutation({
@@ -379,6 +444,7 @@ export function ProviderDetailPage() {
     provider.auth_modes.includes("api_key") ||
     provider.auth_modes.includes("none")
   );
+  const isOAuth = provider.auth_modes.includes("oauth");
   // Bulk key upload applies to providers authenticated by API key. It is hidden
   // for Azure (each key needs its own endpoint + deployment, so there is no
   // shared config to bulk against) and for no-auth providers (nothing to bulk).
@@ -486,6 +552,12 @@ export function ProviderDetailPage() {
                     Connect CLI
                   </Button>
                 )}
+                {isOAuth && (
+                  <Button variant="ghost" className="h-8 px-3 text-xs" onClick={() => setExtensionOAuthOpen(true)}>
+                    <Plug className="h-3.5 w-3.5" />
+                    Connect via OAuth
+                  </Button>
+                )}
                 {supportsManualConnect && (
                   <Button variant="ghost" className="h-8 px-3 text-xs" onClick={() => setAddKeyOpen(true)}>
                     <Plus className="h-3.5 w-3.5" />
@@ -587,79 +659,174 @@ export function ProviderDetailPage() {
         </Card>
 
         {/* Available Models */}
-        {models.data?.models && models.data.models.length > 0 && (
+        {models.data && (
           <Card>
             <CardHeader
               title="Available Models"
-              description={`${models.data.models.length} model${models.data.models.length === 1 ? "" : "s"} configured for this provider.`}
+              description={
+                allModels.length > 0
+                  ? `${allModels.length} model${allModels.length === 1 ? "" : "s"} configured for this provider.`
+                  : "No models loaded yet. Click Sync Models to populate models from extension."
+              }
+              action={
+                <Button
+                  variant="ghost"
+                  className="h-8 px-3 text-xs gap-1.5"
+                  onClick={() => syncModelsMut.mutate()}
+                  disabled={syncModelsMut.isPending}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${syncModelsMut.isPending ? "animate-spin" : ""}`} />
+                  {syncModelsMut.isPending ? "Syncing..." : "Sync Models"}
+                </Button>
+              }
             />
-            <div className="flex flex-col gap-3 border-t border-border bg-muted px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full max-w-sm">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search models..."
-                  value={modelSearchQuery}
-                  onChange={(e) => setModelSearchQuery(e.target.value)}
-                  className="pl-9 h-8 text-sm"
+            {allModels.length === 0 ? (
+              <div className="border-t border-border px-6 py-10 flex flex-col items-center justify-center text-center">
+                <EmptyState
+                  title="No models loaded yet"
+                  hint="Click Sync Models to populate the catalog from the extension into database."
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => syncModelsMut.mutate()}
+                  disabled={syncModelsMut.isPending}
+                  className="mt-2 text-xs"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncModelsMut.isPending ? "animate-spin" : ""}`} />
+                  {syncModelsMut.isPending ? "Syncing..." : "Sync Models"}
+                </Button>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    className="h-3.5 w-3.5 rounded border-border accent-[var(--color-primary-container)]"
-                    checked={filteredModels.length > 0 && filteredModels.every((m) => selectedModelIds.has(m.id))}
-                    ref={(el) => {
-                      if (el) {
-                        const someSelected = filteredModels.some((m) => selectedModelIds.has(m.id));
-                        const allSelected = filteredModels.length > 0 && filteredModels.every((m) => selectedModelIds.has(m.id));
-                        el.indeterminate = someSelected && !allSelected;
-                      }
-                    }}
-                    onChange={(e) => {
-                      setSelectedModelIds((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) {
-                          filteredModels.forEach((m) => next.add(m.id));
-                        } else {
-                          filteredModels.forEach((m) => next.delete(m.id));
-                        }
-                        return next;
-                      });
-                    }}
+            ) : (
+              <>
+            <div className="flex flex-col gap-3 border-t border-border bg-muted px-6 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search models..."
+                    value={modelSearchQuery}
+                    onChange={(e) => setModelSearchQuery(e.target.value)}
+                    className="pl-9 h-8 text-sm"
                   />
-                  Select all
-                </label>
-                {selectedModelIds.size > 0 && (
-                  <span className="text-xs text-muted-foreground">{selectedModelIds.size} selected</span>
-                )}
-                <Button
-                  variant="ghost"
-                  className="h-8 px-3 text-xs"
-                  onClick={() => enableModelsMut.mutate([...selectedModelIds])}
-                  disabled={enableModelsMut.isPending || selectedModelIds.size === 0}
-                >
-                  <ToggleRight className="h-3.5 w-3.5 text-[var(--color-primary-container)]" />
-                  Enable
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="h-8 px-3 text-xs"
-                  onClick={() => disableModelsMut.mutate([...selectedModelIds])}
-                  disabled={disableModelsMut.isPending || selectedModelIds.size === 0}
-                >
-                  <ToggleLeft className="h-3.5 w-3.5 text-muted-foreground" />
-                  Disable
-                </Button>
-                {selectedModelIds.size > 0 && (
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 rounded border-border accent-[var(--color-primary-container)]"
+                      checked={filteredModels.length > 0 && filteredModels.every((m) => selectedModelIds.has(m.id))}
+                      ref={(el) => {
+                        if (el) {
+                          const someSelected = filteredModels.some((m) => selectedModelIds.has(m.id));
+                          const allSelected = filteredModels.length > 0 && filteredModels.every((m) => selectedModelIds.has(m.id));
+                          el.indeterminate = someSelected && !allSelected;
+                        }
+                      }}
+                      onChange={(e) => {
+                        setSelectedModelIds((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) {
+                            filteredModels.forEach((m) => next.add(m.id));
+                          } else {
+                            filteredModels.forEach((m) => next.delete(m.id));
+                          }
+                          return next;
+                        });
+                      }}
+                    />
+                    Select all
+                  </label>
+                  {selectedModelIds.size > 0 && (
+                    <span className="text-xs text-muted-foreground">{selectedModelIds.size} selected</span>
+                  )}
                   <Button
                     variant="ghost"
-                    className="h-8 px-2 text-xs"
-                    onClick={() => setSelectedModelIds(new Set())}
+                    className="h-8 px-3 text-xs"
+                    onClick={() => enableModelsMut.mutate([...selectedModelIds])}
+                    disabled={enableModelsMut.isPending || selectedModelIds.size === 0}
                   >
-                    Clear
+                    <ToggleRight className="h-3.5 w-3.5 text-[var(--color-primary-container)]" />
+                    Enable
                   </Button>
-                )}
+                  <Button
+                    variant="ghost"
+                    className="h-8 px-3 text-xs"
+                    onClick={() => disableModelsMut.mutate([...selectedModelIds])}
+                    disabled={disableModelsMut.isPending || selectedModelIds.size === 0}
+                  >
+                    <ToggleLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                    Disable
+                  </Button>
+                  {selectedModelIds.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      className="h-8 px-3 text-xs text-red-500 hover:text-red-600 gap-1.5"
+                      onClick={() => bulkDeleteModelsMut.mutate([...selectedModelIds])}
+                      disabled={bulkDeleteModelsMut.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete ({selectedModelIds.size})
+                    </Button>
+                  )}
+                  {selectedModelIds.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => setSelectedModelIds(new Set())}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Filter Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setModelCategoryFilter("all")}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    modelCategoryFilter === "all"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground border border-border"
+                  }`}
+                >
+                  All ({allModels.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModelCategoryFilter("free")}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    modelCategoryFilter === "free"
+                      ? "bg-emerald-600 text-white shadow-sm dark:bg-emerald-500"
+                      : "bg-background/80 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-emerald-500/30"
+                  }`}
+                >
+                  Free Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModelCategoryFilter("frontier")}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    modelCategoryFilter === "frontier"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground border border-border"
+                  }`}
+                >
+                  Frontier
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModelCategoryFilter("clinepass")}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    modelCategoryFilter === "clinepass"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground border border-border"
+                  }`}
+                >
+                  ClinePass
+                </button>
               </div>
             </div>
             {filteredModels.length === 0 ? (
@@ -683,6 +850,7 @@ export function ProviderDetailPage() {
                         disableModelsMut.mutate([m.id]);
                       }
                     }}
+                    onDelete={() => deleteModelMut.mutate(m.id)}
                   />
                 ))}
               </div>
@@ -712,6 +880,8 @@ export function ProviderDetailPage() {
                 </div>
               </div>
             )}
+            </>
+            )}
           </Card>
         )}
 
@@ -719,6 +889,15 @@ export function ProviderDetailPage() {
         <CustomModelsSection provider={provider} />
       </div>
 
+      {extensionOAuthOpen && (
+        <ExtensionOAuthModal
+          open={true}
+          slug={id || ""}
+          providerName={provider?.display_name || id || "Provider"}
+          onClose={() => setExtensionOAuthOpen(false)}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ["accounts"] })}
+        />
+      )}
       {kiroOpen && <KiroConnectModal onClose={() => setKiroOpen(false)} />}
       {qoderOpen && <QoderConnectModal onClose={() => setQoderOpen(false)} />}
       {kilocodeOpen && <KilocodeConnectModal onClose={() => setKilocodeOpen(false)} />}
@@ -1768,6 +1947,7 @@ function ModelCell({
   selected,
   onToggleSelect,
   onToggleDisable,
+  onDelete,
 }: {
   model: { id: string; name: string; kind: string };
   provider: Provider;
@@ -1775,9 +1955,14 @@ function ModelCell({
   selected?: boolean;
   onToggleSelect?: () => void;
   onToggleDisable?: () => void;
+  onDelete?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const fullModel = `${provider.alias || provider.id}/${model.id}`;
+  const isFree =
+    model.id.toLowerCase().includes("free") ||
+    (model.name && model.name.toLowerCase().includes("free")) ||
+    model.id.endsWith(":free");
 
   const handleCopy = () => {
     navigator.clipboard.writeText(fullModel);
@@ -1802,6 +1987,11 @@ function ModelCell({
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             {model.kind || "Model"}
           </span>
+          {isFree && (
+            <span className="rounded bg-emerald-500/15 px-1 py-0.2 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              Free
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-0.5">
           {onToggleDisable && (
@@ -1826,6 +2016,17 @@ function ModelCell({
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
             )}
           </Button>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onDelete}
+              title="Delete model from database"
+              className="text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
       <div>

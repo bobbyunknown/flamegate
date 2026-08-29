@@ -134,7 +134,7 @@ func TestOpenAIEngine_ParsesScores(t *testing.T) {
 			},
 		})
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	det := New(Config{OpenAI: &OpenAIConfig{APIKey: "test", BaseURL: srv.URL}})
 	dec, err := det.Inbound(context.Background(), inbound("..."), enabledOpenAIPolicy(60))

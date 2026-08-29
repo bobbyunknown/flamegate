@@ -17,14 +17,17 @@ func TestLatestRelease(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.Write([]byte(`[
+		if _, err := w.Write([]byte(`[
 			{"tag_name":"codex-v0.1.0","published_at":"2026-07-01T00:00:00Z",
 			 "assets":[{"name":"codex-0.1.0.zip","browser_download_url":"https://x/codex-0.1.0.zip","size":10}]},
 			{"tag_name":"codex-v0.2.0","published_at":"2026-08-01T00:00:00Z",
 			 "assets":[{"name":"codex-0.2.0.zip","browser_download_url":"https://x/codex-0.2.0.zip","size":42}]},
 			{"tag_name":"other-v9","published_at":"2026-08-02T00:00:00Z",
 			 "assets":[{"name":"other-9.zip","browser_download_url":"https://x/other-9.zip","size":1}]}
-		]`))
+		]`)); err != nil {
+			t.Errorf("write releases fixture: %v", err)
+			return
+		}
 	}))
 	defer srv.Close()
 
@@ -51,10 +54,13 @@ func TestLatestReleaseCacheHit(t *testing.T) {
 	var hits int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&hits, 1)
-		w.Write([]byte(`[
+		if _, err := w.Write([]byte(`[
 			{"tag_name":"x-v1","published_at":"2026-08-01T00:00:00Z",
 			 "assets":[{"name":"x-1.zip","browser_download_url":"https://x/x-1.zip","size":5}]}
-		]`))
+		]`)); err != nil {
+			t.Errorf("write releases fixture: %v", err)
+			return
+		}
 	}))
 	defer srv.Close()
 

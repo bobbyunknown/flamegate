@@ -27,9 +27,9 @@ func TestOpenAICompatible_Chat(t *testing.T) {
 		require.Equal(t, "/chat/completions", r.URL.Path)
 		require.Equal(t, "Bearer sk-test", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(w, `{"id":"c1","model":"gpt-4o","choices":[{"message":{"role":"assistant","content":"hi there"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"id":"c1","model":"gpt-4o","choices":[{"message":{"role":"assistant","content":"hi there"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("openai", srv.URL)
 	resp, err := c.Chat(context.Background(), textReq("gpt-4o", false), core.Credentials{APIKey: "sk-test"})
@@ -50,13 +50,13 @@ func TestOpenAICompatible_Stream(t *testing.T) {
 			`data: [DONE]`,
 		}
 		for _, l := range lines {
-		fmt.Fprintf(w, "%s\n\n", l) //nolint:errcheck // test helper
+		fmt.Fprintf(w, "%s\n\n", l)
 			if flush != nil {
 				flush.Flush()
 			}
 		}
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("openai", srv.URL)
 	ch, err := c.Stream(context.Background(), textReq("gpt-4o", true), core.Credentials{APIKey: "sk-test"}, core.StreamConfig{})
@@ -82,9 +82,9 @@ func TestOpenAICompatible_MapsRateLimitError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", "30")
 		w.WriteHeader(http.StatusTooManyRequests)
-	fmt.Fprint(w, `{"error":"rate limited"}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"error":"rate limited"}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("openai", srv.URL)
 	_, err := c.Chat(context.Background(), textReq("gpt-4o", false), core.Credentials{APIKey: "sk-test"})
@@ -100,9 +100,9 @@ func TestOpenAICompatible_MapsRateLimitError(t *testing.T) {
 func TestOpenAICompatible_BadRequestNotFallbackable(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-	fmt.Fprint(w, `{"error":"bad model"}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"error":"bad model"}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("openai", srv.URL)
 	_, err := c.Chat(context.Background(), textReq("bogus", false), core.Credentials{APIKey: "k"})
@@ -117,17 +117,17 @@ func TestOpenAICompatible_ValidateAcceptsReachedNonAuthProbeError(t *testing.T) 
 		switch r.URL.Path {
 		case "/models":
 			w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, `{"error":"models endpoint not supported"}`) //nolint:errcheck // test helper
+		fmt.Fprint(w, `{"error":"models endpoint not supported"}`)
 		case "/chat/completions":
 			chatProbed = true
 			require.Equal(t, "Bearer sk-test", r.Header.Get("Authorization"))
 			w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error":"probe model not found"}`) //nolint:errcheck // test helper
+		fmt.Fprint(w, `{"error":"probe model not found"}`)
 		default:
 			http.NotFound(w, r)
 		}
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("sumopod", srv.URL)
 	require.NoError(t, c.Validate(context.Background(), core.Credentials{APIKey: "sk-test"}))
@@ -141,9 +141,9 @@ func TestOpenAICompatible_ValidateRejectsAuthError(t *testing.T) {
 			chatProbed = true
 		}
 		w.WriteHeader(http.StatusUnauthorized)
-	fmt.Fprint(w, `{"error":"bad key"}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"error":"bad key"}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("sumopod", srv.URL)
 	err := c.Validate(context.Background(), core.Credentials{APIKey: "bad-key"})
@@ -156,9 +156,9 @@ func TestOpenAICompatible_ValidateXAIStatusHandling(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			require.Equal(t, "/models", r.URL.Path)
 			w.WriteHeader(http.StatusForbidden)
-		fmt.Fprint(w, `{"error":"no credits"}`) //nolint:errcheck // test helper
+		fmt.Fprint(w, `{"error":"no credits"}`)
 		}))
-		defer srv.Close() //nolint:errcheck // best-effort close
+		defer srv.Close()
 
 		c := NewOpenAICompatible("xai", srv.URL)
 		require.NoError(t, c.Validate(context.Background(), core.Credentials{APIKey: "xai-key"}))
@@ -168,9 +168,9 @@ func TestOpenAICompatible_ValidateXAIStatusHandling(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			require.Equal(t, "/models", r.URL.Path)
 			w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error":"bad key"}`) //nolint:errcheck // test helper
+		fmt.Fprint(w, `{"error":"bad key"}`)
 		}))
-		defer srv.Close() //nolint:errcheck // best-effort close
+		defer srv.Close()
 
 		c := NewOpenAICompatible("xai", srv.URL)
 		require.Error(t, c.Validate(context.Background(), core.Credentials{APIKey: "bad-key"}))
@@ -183,9 +183,9 @@ func TestAzureOpenAI_ChatUsesDeploymentURLAndAPIKey(t *testing.T) {
 		require.Equal(t, "2024-10-01-preview", r.URL.Query().Get("api-version"))
 		require.Equal(t, "az-key", r.Header.Get("api-key"))
 		w.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(w, `{"id":"az1","model":"gpt-4o","choices":[{"message":{"role":"assistant","content":"azure ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"id":"az1","model":"gpt-4o","choices":[{"message":{"role":"assistant","content":"azure ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewOpenAICompatible("azure", "")
 	resp, err := c.Chat(context.Background(), textReq("ignored-model", false), core.Credentials{
@@ -206,9 +206,9 @@ func TestAnthropic_Chat(t *testing.T) {
 		require.Equal(t, "sk-ant", r.Header.Get("x-api-key"))
 		require.Equal(t, anthropicVersion, r.Header.Get("anthropic-version"))
 		w.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(w, `{"id":"m1","model":"claude-x","content":[{"type":"text","text":"hello back"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":3}}`) //nolint:errcheck // test helper
+	fmt.Fprint(w, `{"id":"m1","model":"claude-x","content":[{"type":"text","text":"hello back"}],"stop_reason":"end_turn","usage":{"input_tokens":4,"output_tokens":3}}`)
 	}))
-	defer srv.Close() //nolint:errcheck // best-effort close
+	defer srv.Close()
 
 	c := NewAnthropic("anthropic", srv.URL)
 	resp, err := c.Chat(context.Background(), textReq("claude-x", false), core.Credentials{APIKey: "sk-ant"})
@@ -244,16 +244,16 @@ func publicModelsServer(t *testing.T, goodKey string) (*httptest.Server, *bool) 
 		case "/models":
 			// No auth check — returns 200 for anyone.
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"m1"}]}`)) //nolint:errcheck // best-effort write
+			_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"m1"}]}`))
 		case "/chat/completions":
 			chatProbed = true
 			if r.Header.Get("Authorization") != "Bearer "+goodKey {
 				w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprint(w, `{"error":"invalid api key"}`) //nolint:errcheck // test helper
+			fmt.Fprint(w, `{"error":"invalid api key"}`)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`)) //nolint:errcheck // best-effort write
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
