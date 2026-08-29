@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Package, Plus, RefreshCw, Trash2, Power, Download } from "lucide-react";
+import { Package, Plus, RefreshCw, Trash2, Power, Download, Check } from "lucide-react";
 import { api, type Extension, type StoreExtension } from "../lib/api";
 import { PageHeader } from "@/components/composite/page-header";
 import { useToast } from "../components/Toast";
@@ -145,6 +145,7 @@ export function ExtensionsPage() {
 
       <Store
         store={store}
+        installedSlugs={new Set(list.map((e) => e.slug))}
         onInstallSource={(src) => srcInstall.mutate(src)}
         busy={srcInstall.isPending}
       />
@@ -163,10 +164,12 @@ export function ExtensionsPage() {
 
 function Store({
   store,
+  installedSlugs,
   onInstallSource,
   busy,
 }: {
   store: { data?: { extensions: StoreExtension[] }; isLoading: boolean };
+  installedSlugs: Set<string>;
   onInstallSource: (source: string) => void;
   busy: boolean;
 }) {
@@ -211,34 +214,54 @@ function Store({
             />
           ) : (
             <ul className="divide-y divide-border">
-              {items.map((it) => (
-                <li
-                  key={it.slug}
-                  className="flex flex-col gap-3 px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold">{it.name}</p>
-                      <Badge variant="secondary">store:{it.slug}</Badge>
-                      {it.version ? (
-                        <span className="font-mono text-xs text-muted-foreground">{it.version}</span>
+              {items.map((it) => {
+                const isInstalled = installedSlugs.has(it.slug);
+                return (
+                  <li
+                    key={it.slug}
+                    className="flex flex-col gap-3 px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-semibold">{it.name}</p>
+                        <Badge variant="secondary">store:{it.slug}</Badge>
+                        {it.version ? (
+                          <span className="font-mono text-xs text-muted-foreground">{it.version}</span>
+                        ) : null}
+                        {isInstalled ? (
+                          <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 bg-emerald-500/10 flex items-center gap-1">
+                            <Check className="h-3 w-3" />
+                            Installed
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {it.description ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{it.description}</p>
                       ) : null}
                     </div>
-                    {it.description ? (
-                      <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{it.description}</p>
-                    ) : null}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => installBySlug(it.slug)}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Install
-                  </Button>
-                </li>
-              ))}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant={isInstalled ? "outline" : "default"}
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => installBySlug(it.slug)}
+                      >
+                        {isInstalled ? (
+                          <>
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Reinstall
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-3.5 w-3.5" />
+                            Install
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -266,14 +289,19 @@ function ExtensionRow({
 }) {
   const active = ext.state === "ACTIVE";
   const autoSync = ext.auto_sync_models !== false;
+  const versionDisplay = ext.version
+    ? ext.version.startsWith("v") || ext.version.includes("-v")
+      ? ext.version
+      : `v${ext.version}`
+    : null;
   return (
     <li className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-sm font-semibold">{ext.name || ext.slug}</p>
           <Badge variant={active ? "default" : "secondary"}>{ext.state}</Badge>
-          {ext.version ? (
-            <span className="font-mono text-xs text-muted-foreground">v{ext.version}</span>
+          {versionDisplay ? (
+            <span className="font-mono text-xs text-muted-foreground">{versionDisplay}</span>
           ) : null}
           <Badge variant={autoSync ? "default" : "secondary"}>
             auto-sync {autoSync ? "on" : "off"}
