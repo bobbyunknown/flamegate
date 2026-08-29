@@ -129,7 +129,7 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 
 	// WASM extension engine. Compiles installed extensions and provides
 	// connector fallback for non-native providers.
-	wasmEngine := wasm.NewEngine(cfg.WASM, v, db.Accounts(), &http.Client{Timeout: 60 * time.Second})
+	wasmEngine := wasm.NewEngine(cfg.WASM, v, db.Accounts(), httputil.NewClient(60*time.Second))
 	wasmModules := map[string]*wasm.Module{}
 	if exts, scanErr := wasm.Scan(cfg.WASM.ExtDir); scanErr == nil {
 		for _, ext := range exts {
@@ -169,7 +169,7 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 	}
 	// Remote extension installer shared by the admin API and CLI. It reuses the
 	// same WASM engine, vault, and ExtensionRepo as startup scanning.
-	extStore := extstore.NewInstallerFromConfig(cfg.WASM, &http.Client{Timeout: 60 * time.Second}, wasmEngine, db.Extensions())
+	extStore := extstore.NewInstallerFromConfig(cfg.WASM, httputil.NewClient(60*time.Second), wasmEngine, db.Extensions())
 	// Load user-defined dynamic custom providers and their custom models from
 	// the database so they are routable and discoverable immediately at startup.
 	loadCustomProviders(ctx, db, log)

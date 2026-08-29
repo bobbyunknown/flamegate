@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 	"github.com/bobbyunknown/flamegate/internal/shared/vault"
@@ -174,18 +175,27 @@ func (s *Handler) adminOAuthExchange(w http.ResponseWriter, r *http.Request) {
 		redirectURI = oauthCallbackURI(r, slug)
 	}
 
+	s.log.WithFields(logrus.Fields{
+		"slug":        slug,
+		"code_len":    len(rawCode),
+		"redirectURI": redirectURI,
+	}).Info("adminOAuthExchange: executing oauth_exchange capability")
+
 	res, err := s.wasmEngine.CallCapability(r.Context(), slug, "oauth_exchange", map[string]any{
 		"code": rawCode, "redirect_uri": redirectURI,
 	})
 	if err != nil {
+		s.log.WithError(err).Error("adminOAuthExchange: CallCapability returned error")
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "oauth_exchange failed: " + err.Error()})
 		return
 	}
 	if res == nil {
+		s.log.Warn("adminOAuthExchange: extension returned nil capability response")
 		writeJSON(w, http.StatusNotImplemented, map[string]any{"error": "extension does not support oauth exchange"})
 		return
 	}
 	if gErr, _ := res["error"].(string); gErr != "" {
+		s.log.WithField("guest_error", gErr).Error("adminOAuthExchange: guest returned error")
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": gErr})
 		return
 	}

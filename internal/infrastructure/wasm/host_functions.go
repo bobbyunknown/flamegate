@@ -16,6 +16,7 @@ import (
 
 	"github.com/bobbyunknown/flamegate/internal/application/ports"
 	core "github.com/bobbyunknown/flamegate/internal/domain/provider"
+	"github.com/bobbyunknown/flamegate/internal/shared/httputil"
 	"github.com/bobbyunknown/flamegate/internal/shared/vault"
 )
 
@@ -129,7 +130,7 @@ func hostHTTPRequest(client *http.Client, method string) func(context.Context, a
 
 		// Execute.
 		if client == nil {
-			client = &http.Client{Timeout: 60 * time.Second}
+			client = httputil.NewClient(60 * time.Second)
 		}
 		resp, err := client.Do(req)
 		if err != nil {
