@@ -20,6 +20,7 @@ import (
 type ExtensionRepo interface {
 	FindBySlug(ctx context.Context, slug string) (schema.Extension, error)
 	Create(ctx context.Context, e schema.Extension) error
+	Update(ctx context.Context, e schema.Extension) error
 }
 
 // Compiler compiles WASM bytes for a slug. Implemented by *wasm.Engine.
@@ -120,7 +121,7 @@ func NewInstaller(
 		extConf:       extConf,
 		pubKeys:       pubKeys,
 		allowUnsigned: allowUnsigned,
-		isOfficial:    func(spec SourceSpec) bool { return spec.Kind == SourceStore },
+		isOfficial:    func(spec SourceSpec) bool { return spec.Kind == SourceStore && len(pubKeys) > 0 },
 	}
 }
 
@@ -188,19 +189,44 @@ func (i *Installer) installLocal(ctx context.Context, spec SourceSpec) (*Install
 	if err != nil {
 		return nil, err
 	}
+	sDoc, _, err := readSchema(spec.LocalDir)
+	if err != nil {
+		return nil, err
+	}
 	target := filepath.Join(i.cfg.ExtDir(), slug)
 	// Keep the existing local install path: copy schema.json + wasm.
 	if err := copyLocalExt(spec.LocalDir, target); err != nil {
 		return nil, err
 	}
-	ext := schema.Extension{
-		ID: slug, Slug: slug, Name: slug, Version: "local",
-		State: "ACTIVE", SourceURI: "", TrustLevel: string(TrustLocal), InstalledAt: time.Now(), UpdatedAt: time.Now(),
+	name := sDoc.Name
+	if name == "" {
+		name = slug
 	}
-	if err := i.repo.Create(ctx, ext); err != nil {
+	version := sDoc.Version
+	if version == "" {
+		version = "local"
+	}
+	ext := schema.Extension{
+		ID:                slug,
+		TenantID:          schema.DefaultTenantID,
+		Slug:              slug,
+		Name:              name,
+		Version:           version,
+		Description:       sDoc.Description,
+		AuthKind:          sDoc.AuthKind,
+		DefaultAccountKey: sDoc.DefaultAccountKey,
+		WasmPath:          filepath.Join(target, slug+".wasm"),
+		SchemaPath:        filepath.Join(target, "schema.json"),
+		State:             "ACTIVE",
+		SourceURI:         "local:" + spec.LocalDir,
+		TrustLevel:        string(TrustLocal),
+		InstalledAt:       time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	if err := saveExtension(ctx, i.repo, ext); err != nil {
 		return nil, fmt.Errorf("install: save: %w", err)
 	}
-	return &InstallResult{Slug: slug, Version: "local", Trust: TrustLocal}, nil
+	return &InstallResult{Slug: slug, Version: version, Trust: TrustLocal}, nil
 }
 
 func (i *Installer) installRemote(ctx context.Context, spec SourceSpec, assetURL, version, installedRef string) (*InstallResult, error) {
@@ -231,10 +257,11 @@ func (i *Installer) installRemote(ctx context.Context, spec SourceSpec, assetURL
 		return nil, err
 	}
 
-	slug, _, entrypoints, err := readSchema(stageDir)
+	sDoc, _, err := readSchema(stageDir)
 	if err != nil {
 		return nil, err
 	}
+	slug := sDoc.Slug
 	wasmPath, err := findWasm(stageDir, slug)
 	if err != nil {
 		return nil, err
@@ -243,12 +270,12 @@ func (i *Installer) installRemote(ctx context.Context, spec SourceSpec, assetURL
 	if err != nil {
 		return nil, err
 	}
-	stub := schema.Extension{Slug: slug}
+	stub := schema.Extension{Slug: slug, DefaultAccountKey: sDoc.DefaultAccountKey}
 	if i.extConf != nil {
 		if i.engine == nil {
 			return nil, fmt.Errorf("install: wasm engine unavailable")
 		}
-		if err := i.engine.Compile(ctx, slug, wasmBytes, i.extConf(stub, entrypoints)); err != nil {
+		if err := i.engine.Compile(ctx, slug, wasmBytes, i.extConf(stub, sDoc.Entrypoints)); err != nil {
 			return nil, fmt.Errorf("install: compile: %w", err)
 		}
 	}
@@ -259,16 +286,42 @@ func (i *Installer) installRemote(ctx context.Context, spec SourceSpec, assetURL
 		return nil, err
 	}
 
-	ext := schema.Extension{
-		ID: slug, Slug: slug, Name: slug, Version: version,
-		State: "ACTIVE", SourceURI: sourceURI(spec, installedRef),
-		Checksum: checksum, InstalledRef: installedRef, TrustLevel: string(ver.Trust),
-		InstalledAt: time.Now(), UpdatedAt: time.Now(),
+	name := sDoc.Name
+	if name == "" {
+		name = slug
 	}
-	if err := i.repo.Create(ctx, ext); err != nil {
+	ext := schema.Extension{
+		ID:                slug,
+		TenantID:          schema.DefaultTenantID,
+		Slug:              slug,
+		Name:              name,
+		Version:           version,
+		Description:       sDoc.Description,
+		AuthKind:          sDoc.AuthKind,
+		DefaultAccountKey: sDoc.DefaultAccountKey,
+		WasmPath:          filepath.Join(target, slug+".wasm"),
+		SchemaPath:        filepath.Join(target, "schema.json"),
+		State:             "ACTIVE",
+		SourceURI:         sourceURI(spec, installedRef),
+		Checksum:          checksum,
+		InstalledRef:      installedRef,
+		TrustLevel:        string(ver.Trust),
+		InstalledAt:       time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	if err := saveExtension(ctx, i.repo, ext); err != nil {
 		return nil, fmt.Errorf("install: save: %w", err)
 	}
 	return &InstallResult{Slug: slug, Version: version, SourceURI: ext.SourceURI, InstalledRef: installedRef, Checksum: checksum, Trust: ver.Trust}, nil
+}
+
+func saveExtension(ctx context.Context, repo ExtensionRepo, ext schema.Extension) error {
+	existing, err := repo.FindBySlug(ctx, ext.Slug)
+	if err == nil && existing.ID != "" {
+		ext.ID = existing.ID
+		return repo.Update(ctx, ext)
+	}
+	return repo.Create(ctx, ext)
 }
 
 // --- small helpers ---------------------------------------------------------
@@ -321,23 +374,30 @@ func hashFile(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// readSchema finds schema.json in a dir and extracts slug + entrypoints.
-func readSchema(dir string) (string, []byte, map[string]string, error) {
+type schemaDoc struct {
+	Slug              string            `json:"slug"`
+	Name              string            `json:"name"`
+	Version           string            `json:"version"`
+	Description       string            `json:"description"`
+	AuthKind          string            `json:"auth_kind"`
+	DefaultAccountKey string            `json:"default_account_key"`
+	Entrypoints       map[string]string `json:"entrypoints"`
+}
+
+// readSchema finds schema.json in a dir and extracts metadata + entrypoints.
+func readSchema(dir string) (schemaDoc, []byte, error) {
 	data, err := os.ReadFile(filepath.Join(dir, "schema.json"))
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("install: missing schema.json: %w", err)
+		return schemaDoc{}, nil, fmt.Errorf("install: missing schema.json: %w", err)
 	}
-	var s struct {
-		Slug       string            `json:"slug"`
-		Entrypoints map[string]string `json:"entrypoints"`
-	}
+	var s schemaDoc
 	if err := json.Unmarshal(data, &s); err != nil {
-		return "", nil, nil, fmt.Errorf("install: parse schema.json: %w", err)
+		return schemaDoc{}, nil, fmt.Errorf("install: parse schema.json: %w", err)
 	}
 	if s.Slug == "" {
-		return "", nil, nil, fmt.Errorf("install: schema.json missing slug")
+		return schemaDoc{}, nil, fmt.Errorf("install: schema.json missing slug")
 	}
-	return s.Slug, data, s.Entrypoints, nil
+	return s, data, nil
 }
 
 func findWasm(dir, slug string) (string, error) {

@@ -52,6 +52,11 @@ func (f *fakeRepo) Create(_ context.Context, e schema.Extension) error {
 	return nil
 }
 
+func (f *fakeRepo) Update(_ context.Context, e schema.Extension) error {
+	f.created = append(f.created, e)
+	return nil
+}
+
 // buildSignedExtZip builds a zip with schema.json + demo.wasm + SHA256SUMS,
 // optionally signed by priv. Returns the zip path and (if signed) pubkey hex.
 func buildSignedExtZip(t *testing.T, priv ed25519.PrivateKey, sign bool) (string, string) {
