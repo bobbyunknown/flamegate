@@ -57,7 +57,7 @@ flamegate/
 │   ├── shared/              # Cross-cutting utilities (crypto, vault, observ, httputil, etc.)
 │   │   └── usagehub/        # Real-time usage hub
 │   ├── cli/                 # CLI tool integrations (clitools)
-│   ├── config/              # Config loading (YAML + env vars, prefixed FLAMEGATE_)
+│   ├── config/              # Config loading (TOML + env vars, prefixed FLAMEGATE_)
 │   └── app/                 # Bootstrap wiring (Build, Run)
 ├── frontend/                # React dashboard (Vite, Tailwind, shadcn)
 ├── skills/                  # OpenCode skills (flamegate, flamegate-chat, etc.)

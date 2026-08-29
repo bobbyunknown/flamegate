@@ -110,7 +110,7 @@ Configuration is resolved in increasing order of precedence: **defaults → TOML
 - The default config file is `~/.flamegate/flamegate.toml`. Override it with `-c <path>`/`--config`.
 - Environment variables are prefixed `FLAMEGATE_` and use double underscores for nesting — `FLAMEGATE_SERVER__PORT=8080` sets `server.port`.
 
-Reference configs live in the repo: [`flamegate.example.toml`](./flamegate.example.toml) (loadable) and [`config.example.yaml`](./config.example.yaml) (schema reference only — the loader parses TOML).
+Reference config is available at [`flamegate.example.toml`](./flamegate.example.toml).
 
 | Setting | Description | Default |
 | --- | --- | --- |
