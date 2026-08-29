@@ -42,6 +42,8 @@ export interface ProviderModel {
   custom?: boolean;
   db_id?: string;
   discovered?: boolean;
+  tier?: string;
+  tags?: string[];
 }
 
 // CustomProvider is a user-defined provider instance (OpenAI- or Anthropic-

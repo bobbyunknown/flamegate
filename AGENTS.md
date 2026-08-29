@@ -1,18 +1,39 @@
 # FlameGate — Agent Knowledge Base
 
-**Generated:**2026-07-04
+**Generated:** 2026-08-30
 **Module:** `github.com/bobbyunknown/flamegate`
-**Stack:** Go1.26 + React/Vite frontend + SQLite/Postgres
+**Stack:** Go1.26 + React/Vite frontend + SQLite/Postgres + Wazero WASM Runtime
 
 ## OVERVIEW
 
-FlameGate is an LLM proxy/router. It accepts requests in multiple client dialects (OpenAI, Anthropic, Gemini), applies token-saving transforms, routes to the best available provider account, and meters usage.
+FlameGate is an LLM proxy/router and extension runtime. It accepts requests in multiple client dialects (OpenAI, Anthropic, Gemini), applies token-saving transforms, routes to provider accounts or WASM extensions, and meters usage.
+
+---
+
+## 🏛️ ARCHITECTURAL PRINCIPLE: EXTENSION-FIRST (CRITICAL)
+
+FlameGate follows a **Microkernel / Pluggable Architecture**:
+1. **Core Gateway (Host Backend)**:
+   - Thin, high-performance router, gateway, guardrail pipeline, usage meter, and WASM host (`internal/infrastructure/wasm/`).
+   - Provides sandboxed host imports (HTTP client, crypto vault, credentials, SSE streaming emitter).
+   - **ZERO LLM-specific hardcoding**: Do NOT add provider-specific LLM adapters into core Go connectors.
+2. **Extensions Layer (`flamegate-ext/`)**:
+   - Source of truth for LLM providers (e.g. Antigravity, Xiaomi MiMo, Cline, Codex).
+   - Handles OAuth flows, API dialect transforms, response & candidate extraction, stream SSE parsing, and model catalog discovery.
+   - Declares models with standard tiers (`free`, `paid`, `pass`, `frontier`, `pro`, `flash`) and generic tags.
+
+---
 
 ## STRUCTURE
 
 ```
 flamegate/
 ├── cmd/flamegate/           # Entrypoint, CLI (start/bootstrap/status/version)
+├── flamegate-ext/           # WASM Extensions repository (Rust/TinyGo)
+│   ├── antigravity/         # Google Antigravity & CodeAssist WASM extension
+│   ├── xiaomi-mimo/         # Xiaomi MiMo WASM extension
+│   ├── cline/               # ClinePass WASM extension
+│   └── store/               # Extension registry & manifests
 ├── internal/
 │   ├── domain/              # Pure types — ZERO external deps
 │   │   ├── shared/          # Value objects, errors, enums, message, request/response
@@ -31,15 +52,16 @@ flamegate/
 │   │   ├── query/           # Read-only query services (models, usage, system)
 │   │   └── usecases/        # Per-aggregate use cases (key, account, chat, plan, etc.)
 │   ├── infrastructure/      # Adapters
+│   │   ├── wasm/            # Wazero runtime, host functions, extension loader & hot reload
+│   │   ├── extstore/        # Extension installation, verification, and catalog
 │   │   ├── http/            # Huma + Chi HTTP layer
-│   │   │   ├── handlers/    # HTTP handler methods (chat, accounts, guardrails, etc.)
+│   │   │   ├── handlers/    # HTTP handler methods (admin, proxy, chat, etc.)
 │   │   │   ├── middleware/  # Auth, CORS, rate limit, panic recovery
 │   │   │   ├── openapi/     # Huma OpenAPI config + security schemes
 │   │   │   └── router/      # Route registration (wires handlers + middleware)
-│   │   ├── persistence/     # GORM repos + schema models (24 tables) + UnitOfWork
+│   │   ├── persistence/     # GORM repos + schema models (25 tables) + UnitOfWork
 │   │   ├── cache/           # Memory cache, Redis, embedder
-│   │   ├── connectors/      # LLM provider adapters
-│   │   │   └── qoder/       # Qoder connector
+│   │   ├── connectors/      # Core native connectors
 │   │   ├── guardrails/      # Content safety (PII, toxicity, injection, bias, topics)
 │   │   ├── transform/       # Dialect translation (OpenAI ↔ Anthropic ↔ Gemini)
 │   │   ├── tunnel/          # Cloudflare & Tailscale tunnels
@@ -51,7 +73,7 @@ flamegate/
 │   │   ├── identity/        # API key creation & rotation
 │   │   ├── meter/           # Usage metering & async batching
 │   │   ├── budget/          # Budget engine (spend limits)
-│   │   ├── oauth/           # OAuth2 flows for provider accounts
+│   │   ├── oauth/           # Generic OAuth router & callback dispatcher
 │   │   ├── healthcheck/     # Background account health probes
 │   │   └── update/          # Version update checker
 │   ├── shared/              # Cross-cutting utilities (crypto, vault, observ, httputil, etc.)
@@ -79,17 +101,20 @@ config/ importable by all layers
 
 | Task | Start Here | Notes |
 |---|---|---|
-| Add new LLM provider | `internal/infrastructure/connectors/` | Implement `domain.Connector` interface, register in `registry.go` |
-| Add new endpoint | `internal/infrastructure/http/handlers/` | Add handler method, register in `router/router.go` |
-| Change routing logic | `internal/infrastructure/pipeline/` + `internal/dispatch/` | Pipeline orchestrates, dispatch selects account |
+| Add new LLM provider | `flamegate-ext/<slug>/` | Build as WASM extension, implement `invoke` & `list_models` |
+| WASM Runtime / Host Functions | `internal/infrastructure/wasm/` | Wazero host functions (`http_post`, `get_credentials`, etc.) |
+| Add new endpoint | `internal/infrastructure/http/handlers/` | Add handler method, register in `router/` |
+| Change routing logic | `internal/infrastructure/pipeline/` + `internal/infrastructure/dispatch/` | Pipeline orchestrates, dispatch selects account |
 | Add guardrail detector | `internal/infrastructure/guardrails/` | Implement `Detector` interface, wire in `app.go` |
 | Change config | `internal/config/config.go` | Struct + `koanf` loading. Env prefix: `FLAMEGATE_` |
 | Add token-saving feature | `internal/shared/slimmer/` or `internal/shared/headroom/` | Pipeline calls these before upstream |
-| Change auth flow | `internal/infrastructure/auth/` + `internal/infrastructure/http/auth_handlers.go` | Session cookie: `fg_session` |
+| Change auth flow | `internal/infrastructure/auth/` + `internal/infrastructure/http/handlers/` | Session cookie: `fg_session` |
 | Add CLI tool integration | `internal/cli/clitools/` | Register in registry, implement auto-config |
 | Database migration | `internal/infrastructure/persistence/` | GORM schema models + Atlas migration (`atlas.hcl`) |
 | Prometheus metrics | `internal/shared/observ/metrics.go` | Prefix: `flamegate_` |
-| Frontend change | `frontend/src/` | React + Tailwind + shadcn/ui |
+| Frontend change | `frontend/src/` | React + Tailwind + shadcn/ui (Generic data-driven UI) |
+
+---
 
 ## GO CODING RULES
 
@@ -179,32 +204,13 @@ These are project-specific rules, not generic advice. Violations will be rejecte
 - **Lines ≤120 chars.** Break at semantic boundaries, not column counts
 - **4+ function args → one per line**
 
-## ERROR MESSAGES
-
-```
-# Format: lowercase, no punctuation, context prefix
-fmt.Errorf("load config %s: %w", path, err)         # GOOD
-fmt.Errorf("Load config: %w", err)                    # BAD: capital
-fmt.Errorf("load config: %w.", err)                    # BAD: punctuation
-fmt.Errorf("error loading config: %w", err)            # BAD: redundant "error"
-```
-
-## TESTING
-
-- **Table-driven tests** with `t.Run` subtests
-- **`testify/assert`** and **`testify/require`** for assertions
-- **SQLite in-memory** (`:memory:`) for database tests
-- **`net/http/httptest`** for HTTP handler tests
-- **Test file location:** same package as code, `_test.go` suffix
-- **Test naming:** `TestFunctionName_Scenario` — e.g. `TestGenerateAPIKey_InvalidInput`
-- **`t.Parallel()`** when tests don't share mutable state
-- **Mock interfaces** from `internal/application/ports/` or define locally in test files
-- **No test suites** unless testing complex stateful setups (use `testify/suite` sparingly)
+---
 
 ## ANTI-PATTERNS (FORBIDDEN)
 
 | Pattern | Why | Do Instead |
 |---|---|---|
+| Hardcoding LLM adapters in Go core | Bloats gateway & couples dependencies | Build as WASM extension in `flamegate-ext/` |
 | `_, _ = fn()` | Swallowed error | Handle or `//nolint:errcheck` with reason |
 | `panic(err)` for IO/network | Crashes server | `return ..., fmt.Errorf("...: %w", err)` |
 | `log.Printf` in library code | Unstructured | `log.WithField("key", val).Error("msg")` |
@@ -217,6 +223,8 @@ fmt.Errorf("error loading config: %w", err)            # BAD: redundant "error"
 | Context in struct field | Breaks context semantics | First function parameter |
 | `init()` for side effects | Hidden coupling | Explicit initialization in `app.go` |
 
+---
+
 ## COMMANDS
 
 ```bash
@@ -227,6 +235,10 @@ air                         # Go hot reload only (needs .air.toml)
 # Build
 make build                  # Backend binary + frontend assets
 go build ./cmd/flamegate    # Backend only
+
+# Extensions Build & Deploy Local
+cd flamegate-ext/<slug> && make build
+mkdir -p ~/.flamegate/exts/<slug> && cp schema.json dist/<slug>.wasm ~/.flamegate/exts/<slug>/
 
 # Test
 make test                   # All tests
@@ -252,16 +264,14 @@ cd frontend && npm run build        # Production build
 
 ## NOTES
 
-- **Module path:** `github.com/bobbyunknown/flamegate` (was `mydisha/keirouter/backend`)
-- **Env prefix:** `FLAMEGATE_` (was `KEIROUTER_`). Example: `FLAMEGATE_SERVER__PORT=20180`
-- **API key prefix: `fg_`
+- **Module path:** `github.com/bobbyunknown/flamegate`
+- **Env prefix:** `FLAMEGATE_`. Example: `FLAMEGATE_SERVER__PORT=20180`
+- **API key prefix:** `fg_`
 - **Session cookie:** `fg_session`
-- **Prometheus prefix:** `flamegate_` (was `keirouter_`)
+- **Prometheus prefix:** `flamegate_`
 - **Config path:** `~/.flamegate/`
+- **Extensions dir:** `~/.flamegate/exts/`
 - **Database default:** `~/.flamegate/flamegate.db`
-- **`internal/domain/` has ZERO external deps** — compiler enforces this via `internal/` visibility
 - **Clean Architecture**: `infrastructure/` → `application/` → `domain/` (never reverse)
-- **GORM persistence**: `internal/infrastructure/persistence/` — 17 repos,24 schema models, `schema/` type hub
-- **`internal/infrastructure/http/`** — handlers/ (61 files), middleware/, openapi/, router/
-- **Logging**: `logrus` (slog residual being cleaned up in prettylog)
-- **Auth**: JWT via `golang-jwt/jwt/v5` (migrated from HMAC SHA-256)
+- **Persistence**: GORM repos + schema models in `internal/infrastructure/persistence/`
+- **Auth**: JWT via `golang-jwt/jwt/v5`

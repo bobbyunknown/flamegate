@@ -219,8 +219,12 @@ func (e *Engine) Close() error {
 
 // DiscoveredModel represents a model returned by an extension's list_models entrypoint.
 type DiscoveredModel struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Tier        string   `json:"tier,omitempty"`
+	Category    string   `json:"category,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	Description string   `json:"description,omitempty"`
 }
 
 // ListModels calls the extension's list_models entrypoint and returns discovered models.

@@ -142,6 +142,13 @@ func hostHTTPRequest(client *http.Client, method string) func(context.Context, a
 		if err != nil {
 			return writeHostError(ctx, mod, "HOST_READ_ERROR", err.Error())
 		}
+		if strings.Contains(string(rawURL), "cloudcode-pa.googleapis.com") {
+			logrus.WithFields(logrus.Fields{
+				"url":    string(rawURL),
+				"status": resp.StatusCode,
+				"body":   string(respBody),
+			}).Info("WASM cloudcode-pa response")
+		}
 
 		// Return raw upstream body with length prefix — extension parses it directly.
 		// Works for both JSON (non-stream) and SSE text (stream).

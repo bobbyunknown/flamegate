@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -114,12 +115,73 @@ type ProviderModelsOutput struct {
 }
 
 type modelInfo struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Kind       string `json:"kind"`
-	Custom     bool   `json:"custom,omitempty"`
-	DBID       string `json:"db_id,omitempty"`
-	Discovered bool   `json:"discovered,omitempty"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	Kind       string   `json:"kind"`
+	Custom     bool     `json:"custom,omitempty"`
+	DBID       string   `json:"db_id,omitempty"`
+	Discovered bool     `json:"discovered,omitempty"`
+	Tier       string   `json:"tier,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
+}
+
+func inferModelTags(id, name, existingTier string, existingTags []string) (string, []string) {
+	tagSet := make(map[string]struct{})
+	for _, t := range existingTags {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t != "" {
+			tagSet[t] = struct{}{}
+		}
+	}
+
+	tier := strings.ToLower(strings.TrimSpace(existingTier))
+	if tier != "" {
+		tagSet[tier] = struct{}{}
+	}
+
+	lowerID := strings.ToLower(id)
+	lowerName := strings.ToLower(name)
+
+	if strings.Contains(lowerID, "free") || strings.Contains(lowerName, "free") || strings.HasSuffix(lowerID, ":free") {
+		tagSet["free"] = struct{}{}
+		if tier == "" {
+			tier = "free"
+		}
+	}
+	if strings.Contains(lowerID, "pass") || strings.Contains(lowerName, "pass") {
+		tagSet["pass"] = struct{}{}
+		if tier == "" {
+			tier = "pass"
+		}
+	}
+	if strings.Contains(lowerID, "frontier") || strings.Contains(lowerName, "frontier") || strings.Contains(lowerID, "opus") || strings.Contains(lowerID, "sonnet") || strings.Contains(lowerID, "o1") || strings.Contains(lowerID, "o3") {
+		tagSet["frontier"] = struct{}{}
+		if tier == "" {
+			tier = "frontier"
+		}
+	}
+	if strings.Contains(lowerID, "flash") || strings.Contains(lowerName, "flash") {
+		tagSet["flash"] = struct{}{}
+		if tier == "" {
+			tier = "flash"
+		}
+	}
+	if strings.Contains(lowerID, "pro") || strings.Contains(lowerName, "pro") {
+		tagSet["pro"] = struct{}{}
+		if tier == "" {
+			tier = "pro"
+		}
+	}
+	if strings.Contains(lowerID, "image") || strings.Contains(lowerName, "image") {
+		tagSet["image"] = struct{}{}
+	}
+
+	tags := make([]string, 0, len(tagSet))
+	for t := range tagSet {
+		tags = append(tags, t)
+	}
+	slices.Sort(tags)
+	return tier, tags
 }
 
 func parseRefreshFlag(v string) bool {
@@ -166,7 +228,8 @@ func (s *Handler) HumaProviderModels(ctx context.Context, input *ProviderModelsI
 		if kindFilter != "" && kind != kindFilter {
 			continue
 		}
-		mi := modelInfo{ID: m.ID, Name: m.Name, Kind: string(kind)}
+		tier, tags := inferModelTags(m.ID, m.Name, "", nil)
+		mi := modelInfo{ID: m.ID, Name: m.Name, Kind: string(kind), Tier: tier, Tags: tags}
 		if cm, ok := customByID[m.ID]; ok {
 			mi.Custom = true
 			mi.DBID = cm.ID
@@ -228,7 +291,8 @@ func (s *Handler) HumaProviderModels(ctx context.Context, input *ProviderModelsI
 				if seen[lm.ID] {
 					continue
 				}
-				out = append(out, modelInfo{ID: lm.ID, Name: lm.Name, Kind: string(kind), Discovered: true})
+				tier, tags := inferModelTags(lm.ID, lm.Name, "", nil)
+				out = append(out, modelInfo{ID: lm.ID, Name: lm.Name, Kind: string(kind), Discovered: true, Tier: tier, Tags: tags})
 				seen[lm.ID] = true
 				added = true
 			}
@@ -304,11 +368,26 @@ func (s *Handler) HumaProviderModels(ctx context.Context, input *ProviderModelsI
 					if name == "" {
 						name = modelID
 					}
+					var tier string
+					var tags []string
+					if em.Metadata != "" {
+						var meta struct {
+							Tier string   `json:"tier"`
+							Tags []string `json:"tags"`
+						}
+						if err := json.Unmarshal([]byte(em.Metadata), &meta); err == nil {
+							tier = meta.Tier
+							tags = meta.Tags
+						}
+					}
+					tier, tags = inferModelTags(modelID, name, tier, tags)
 					out = append(out, modelInfo{
 						ID:         modelID,
 						Name:       name,
 						Kind:       string(core.ServiceLLM),
 						Discovered: em.Source == "discovered",
+						Tier:       tier,
+						Tags:       tags,
 					})
 					seen[modelID] = true
 				}

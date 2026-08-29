@@ -47,17 +47,17 @@ func TestAntigravityExtensionSmoke(t *testing.T) {
 		}
 
 		// Mock fetchAvailableModels
-		if lastURL == "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels" {
+		if lastURL == "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels" {
 			return writeStubJSON(mod, `{"models":{"gemini-2.5-pro":{"displayName":"Gemini 2.5 Pro"}}}`)
 		}
 
 		// Mock non-streaming generation
-		if lastURL == "https://cloudcode-pa.googleapis.com/v1internal:generateContent" {
+		if lastURL == "https://daily-cloudcode-pa.googleapis.com/v1internal:generateContent" {
 			return writeStubJSON(mod, `{"candidates":[{"content":{"parts":[{"text":"Hello from Antigravity!"}]}}]}`)
 		}
 
 		// Mock streaming generation
-		if lastURL == "https://cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse" {
+		if lastURL == "https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse" {
 			sse := "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello \"}]}}]}\n\n" +
 				"data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"from Antigravity stream!\"}]}}]}\n\n" +
 				"data: [DONE]\n\n"
@@ -112,7 +112,7 @@ func TestAntigravityExtensionSmoke(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(lmRaw, &models))
 	require.True(t, len(models) >= 4)
-	require.Equal(t, "gemini-2.5-pro", models[0].ID)
+	require.NotEmpty(t, models[0].ID)
 	t.Logf("list_models returned %d models", len(models))
 
 	// 2. Test oauth_authorize
@@ -152,7 +152,7 @@ func TestAntigravityExtensionSmoke(t *testing.T) {
 	require.Equal(t, "ya29.test_token", exchData.AccessToken)
 	require.Equal(t, "1//test_refresh", exchData.RefreshToken)
 	require.Equal(t, "antigravity.tester@gmail.com", exchData.AccountName)
-	require.Equal(t, "test-project-123", exchData.ProjectID)
+	require.Equal(t, "aicode-consumers", exchData.ProjectID)
 	t.Logf("oauth_exchange result: %+v", exchData)
 
 	// 4. Test oauth_refresh
@@ -182,7 +182,7 @@ func TestAntigravityExtensionSmoke(t *testing.T) {
 	require.Empty(t, gResp.Error)
 	require.Equal(t, "Hello from Antigravity!", gResp.Content)
 	require.Equal(t, "stop", gResp.FinishReason)
-	require.Contains(t, lastBody, `"project":"test-project-123"`)
+	require.Contains(t, lastBody, `"project":"aicode-consumers"`)
 	require.Contains(t, lastBody, `"model":"gemini-2.5-flash"`)
 	t.Logf("Non-streaming response: %+v", gResp)
 

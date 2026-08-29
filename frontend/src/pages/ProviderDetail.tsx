@@ -86,7 +86,7 @@ export function ProviderDetailPage() {
 
   // Model search and pagination
   const [modelSearchQuery, setModelSearchQuery] = useState("");
-  const [modelCategoryFilter, setModelCategoryFilter] = useState<"all" | "free" | "frontier" | "clinepass">("all");
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string>("all");
   const [modelPage, setModelPage] = useState(1);
   const MODELS_PER_PAGE = 12;
 
@@ -106,24 +106,51 @@ export function ProviderDetailPage() {
     });
   };
 
+  // Extract all unique available tags/tiers across all models for this provider
+  const availableTags = useMemo(() => {
+    const tagCountMap = new Map<string, number>();
+    for (const m of allModels) {
+      const tags = new Set<string>();
+      if (m.tier) tags.add(m.tier.toLowerCase());
+      if (m.tags) {
+        for (const t of m.tags) {
+          if (t) tags.add(t.toLowerCase());
+        }
+      }
+      for (const t of tags) {
+        tagCountMap.set(t, (tagCountMap.get(t) ?? 0) + 1);
+      }
+    }
+    const priorityOrder: Record<string, number> = {
+      free: 1,
+      paid: 2,
+      pass: 3,
+      frontier: 4,
+      pro: 5,
+      flash: 6,
+      image: 7,
+      chat: 8,
+    };
+    return Array.from(tagCountMap.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => {
+        const pa = priorityOrder[a.tag] ?? 99;
+        const pb = priorityOrder[b.tag] ?? 99;
+        if (pa !== pb) return pa - pb;
+        return a.tag.localeCompare(b.tag);
+      });
+  }, [allModels]);
+
   const filteredModels = useMemo(() => {
     let list = allModels;
 
-    if (modelCategoryFilter === "free") {
-      list = list.filter((m) =>
-        m.id.toLowerCase().includes("free") ||
-        (m.name && m.name.toLowerCase().includes("free")) ||
-        m.id.endsWith(":free")
-      );
-    } else if (modelCategoryFilter === "frontier") {
-      list = list.filter((m) =>
-        m.name && m.name.toLowerCase().includes("frontier")
-      );
-    } else if (modelCategoryFilter === "clinepass") {
-      list = list.filter((m) =>
-        m.id.toLowerCase().includes("cline-pass") ||
-        (m.name && m.name.toLowerCase().includes("clinepass"))
-      );
+    if (selectedTagFilter !== "all") {
+      const targetTag = selectedTagFilter.toLowerCase();
+      list = list.filter((m) => {
+        if (m.tier && m.tier.toLowerCase() === targetTag) return true;
+        if (m.tags && m.tags.some((t) => t.toLowerCase() === targetTag)) return true;
+        return false;
+      });
     }
 
     if (!modelSearchQuery.trim()) return list;
@@ -134,11 +161,11 @@ export function ProviderDetailPage() {
         (m.name && m.name.toLowerCase().includes(lowerQ)) ||
         (m.kind && m.kind.toLowerCase().includes(lowerQ))
     );
-  }, [allModels, modelSearchQuery, modelCategoryFilter]);
+  }, [allModels, modelSearchQuery, selectedTagFilter]);
 
   useEffect(() => {
     setModelPage(1);
-  }, [modelSearchQuery, modelCategoryFilter]);
+  }, [modelSearchQuery, selectedTagFilter]);
 
   const totalModelPages = Math.ceil(filteredModels.length / MODELS_PER_PAGE);
   const paginatedModels = filteredModels.slice(
@@ -781,52 +808,58 @@ export function ProviderDetailPage() {
                 </div>
               </div>
 
-              {/* Quick Filter Pills */}
+              {/* Quick Filter Pills (Dynamically populated from backend model tags/tiers) */}
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <button
                   type="button"
-                  onClick={() => setModelCategoryFilter("all")}
+                  onClick={() => setSelectedTagFilter("all")}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    modelCategoryFilter === "all"
+                    selectedTagFilter === "all"
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground border border-border"
                   }`}
                 >
                   All ({allModels.length})
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setModelCategoryFilter("free")}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    modelCategoryFilter === "free"
-                      ? "bg-emerald-600 text-white shadow-sm dark:bg-emerald-500"
-                      : "bg-background/80 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-emerald-500/30"
-                  }`}
-                >
-                  Free Only
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModelCategoryFilter("frontier")}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    modelCategoryFilter === "frontier"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground border border-border"
-                  }`}
-                >
-                  Frontier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModelCategoryFilter("clinepass")}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    modelCategoryFilter === "clinepass"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground border border-border"
-                  }`}
-                >
-                  ClinePass
-                </button>
+                {availableTags.map(({ tag, count }) => {
+                  const isActive = selectedTagFilter === tag;
+                  const isFree = tag === "free";
+                  const isPass = tag === "pass";
+                  const label =
+                    tag === "free"
+                      ? "Free Only"
+                      : tag === "pass"
+                      ? "Pass"
+                      : tag === "frontier"
+                      ? "Frontier"
+                      : tag
+                          .split(/[-_]/)
+                          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                          .join(" ");
+
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setSelectedTagFilter(tag)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        isActive
+                          ? isFree
+                            ? "bg-emerald-600 text-white shadow-sm dark:bg-emerald-500"
+                            : isPass
+                            ? "bg-purple-600 text-white shadow-sm dark:bg-purple-500"
+                            : "bg-primary text-primary-foreground shadow-sm"
+                          : isFree
+                          ? "bg-background/80 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-emerald-500/30"
+                          : isPass
+                          ? "bg-background/80 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30 border border-purple-500/30"
+                          : "bg-background/80 text-muted-foreground hover:bg-background hover:text-foreground border border-border"
+                      }`}
+                    >
+                      {label} ({count})
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {filteredModels.length === 0 ? (

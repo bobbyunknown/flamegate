@@ -492,6 +492,23 @@ func (s *Handler) syncExtensionModels(ctx context.Context, ext schema.Extension)
 		if name == "" {
 			name = modelID
 		}
+		var metadataJSON string
+		metaMap := map[string]any{}
+		if m.Tier != "" {
+			metaMap["tier"] = m.Tier
+		}
+		if m.Category != "" {
+			metaMap["category"] = m.Category
+		}
+		if len(m.Tags) > 0 {
+			metaMap["tags"] = m.Tags
+		}
+		if len(metaMap) > 0 {
+			if b, err := json.Marshal(metaMap); err == nil {
+				metadataJSON = string(b)
+			}
+		}
+
 		em := schema.ExtensionModel{
 			ID:          fmt.Sprintf("%s/%s", slug, modelID),
 			ExtensionID: ext.ID,
@@ -500,6 +517,7 @@ func (s *Handler) syncExtensionModels(ctx context.Context, ext schema.Extension)
 			DisplayName: name,
 			Source:      "discovered",
 			Enabled:     true,
+			Metadata:    metadataJSON,
 		}
 		if err := s.db.ExtensionModels().Create(ctx, em); err != nil {
 			s.log.WithError(err).Warn("extension sync: insert model failed", "slug", slug, "model", modelID)
