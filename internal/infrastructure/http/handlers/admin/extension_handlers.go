@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	core "github.com/bobbyunknown/flamegate/internal/domain"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/capability"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/wasm"
@@ -492,6 +493,48 @@ func (s *Handler) syncExtensionModels(ctx context.Context, ext schema.Extension)
 		if name == "" {
 			name = modelID
 		}
+		contextWindow := m.ContextWindow
+		maxOutput := m.MaxOutput
+		inputMods := m.InputModalities
+		outputMods := m.OutputModalities
+
+		// Auto-enrich token limits and modalities if missing from guest extension
+		if contextWindow == 0 || len(inputMods) == 0 {
+			prof := capability.ResolveProfile(slug, modelID)
+			if contextWindow == 0 && prof.ContextWindow > 0 {
+				contextWindow = prof.ContextWindow
+			}
+			if maxOutput == 0 && prof.MaxOutput > 0 {
+				maxOutput = prof.MaxOutput
+			}
+			if len(inputMods) == 0 {
+				mods := []string{"text"}
+				if prof.Vision {
+					mods = append(mods, "image")
+				}
+				if prof.PDF {
+					mods = append(mods, "pdf")
+				}
+				if prof.AudioInput {
+					mods = append(mods, "audio")
+				}
+				if prof.VideoInput {
+					mods = append(mods, "video")
+				}
+				inputMods = mods
+			}
+			if len(outputMods) == 0 {
+				mods := []string{"text"}
+				if prof.ImageOutput {
+					mods = append(mods, "image")
+				}
+				if prof.AudioOutput {
+					mods = append(mods, "audio")
+				}
+				outputMods = mods
+			}
+		}
+
 		var metadataJSON string
 		metaMap := map[string]any{}
 		if m.Tier != "" {
@@ -503,6 +546,12 @@ func (s *Handler) syncExtensionModels(ctx context.Context, ext schema.Extension)
 		if len(m.Tags) > 0 {
 			metaMap["tags"] = m.Tags
 		}
+		if len(inputMods) > 0 {
+			metaMap["input_modalities"] = inputMods
+		}
+		if len(outputMods) > 0 {
+			metaMap["output_modalities"] = outputMods
+		}
 		if len(metaMap) > 0 {
 			if b, err := json.Marshal(metaMap); err == nil {
 				metadataJSON = string(b)
@@ -510,14 +559,16 @@ func (s *Handler) syncExtensionModels(ctx context.Context, ext schema.Extension)
 		}
 
 		em := schema.ExtensionModel{
-			ID:          fmt.Sprintf("%s/%s", slug, modelID),
-			ExtensionID: ext.ID,
-			TenantID:    ext.TenantID,
-			Slug:        modelID,
-			DisplayName: name,
-			Source:      "discovered",
-			Enabled:     true,
-			Metadata:    metadataJSON,
+			ID:            fmt.Sprintf("%s/%s", slug, modelID),
+			ExtensionID:   ext.ID,
+			TenantID:      ext.TenantID,
+			Slug:          modelID,
+			DisplayName:   name,
+			Source:        "discovered",
+			Enabled:       true,
+			ContextWindow: contextWindow,
+			MaxOutput:     maxOutput,
+			Metadata:      metadataJSON,
 		}
 		if err := s.db.ExtensionModels().Create(ctx, em); err != nil {
 			s.log.WithError(err).Warn("extension sync: insert model failed", "slug", slug, "model", modelID)
