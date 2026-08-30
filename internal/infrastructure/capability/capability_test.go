@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	core "github.com/bobbyunknown/flamegate/internal/domain"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/catalog"
 )
 
 // TestOf verifies the capability set projected from a resolved profile across
@@ -203,3 +204,189 @@ func TestRequired(t *testing.T) {
 func equalSets(a, b core.CapabilitySet) bool {
 	return a.Satisfies(b) && b.Satisfies(a)
 }
+
+type mockCatalogSource struct {
+	models map[string]*catalog.ModelSpec
+}
+
+func (m *mockCatalogSource) FindModel(provider, modelID string) (*catalog.ModelSpec, bool) {
+	if provider != "" {
+		if spec, ok := m.models[provider+"/"+modelID]; ok {
+			return spec, true
+		}
+	}
+	if spec, ok := m.models[modelID]; ok {
+		return spec, true
+	}
+	return nil, false
+}
+
+func TestResolveProfile_WithCatalogEnrichment(t *testing.T) {
+	mockSrc := &mockCatalogSource{
+		models: map[string]*catalog.ModelSpec{
+			"antigravity/gemini-3.7-flash-high": {
+				ID:       "gemini-3.7-flash-high",
+				Provider: "antigravity",
+				Limits: catalog.ModelLimits{
+					Context: 1048576,
+					Output:  65536,
+				},
+				Modalities: catalog.ModelModalities{
+					Input:  []string{"text", "image", "audio", "video", "pdf"},
+					Output: []string{"text"},
+				},
+				Reasoning: true,
+				ToolCall:  true,
+			},
+			"google/gemini-2.5-flash": {
+				ID:       "gemini-2.5-flash",
+				Provider: "google",
+				Limits: catalog.ModelLimits{
+					Context: 1048576,
+					Output:  65536,
+				},
+				Modalities: catalog.ModelModalities{
+					Input:  []string{"text", "image", "pdf"},
+					Output: []string{"text"},
+				},
+				Reasoning: true,
+				ToolCall:  true,
+			},
+			"anthropic/claude-opus-4.7": {
+				ID:       "claude-opus-4.7",
+				Provider: "anthropic",
+				Limits: catalog.ModelLimits{
+					Context: 1000000,
+					Output:  128000,
+				},
+				Modalities: catalog.ModelModalities{
+					Input:  []string{"text", "image", "pdf"},
+					Output: []string{"text"},
+				},
+				Reasoning: true,
+				ToolCall:  true,
+			},
+			"custom/nova-v1": {
+				ID:       "nova-v1",
+				Provider: "custom",
+				Limits: catalog.ModelLimits{
+					Context: 500000,
+					Output:  32000,
+				},
+				Modalities: catalog.ModelModalities{
+					Input:  []string{"text", "image", "audio", "video", "pdf"},
+					Output: []string{"text"},
+				},
+				Reasoning: true,
+				ToolCall:  true,
+			},
+		},
+	}
+
+	SetCatalogSource(mockSrc)
+	defer SetCatalogSource(nil)
+
+	t.Run("antigravity gemini-3.7-flash-high preserves gemini-level thinking format and gains catalog specs", func(t *testing.T) {
+		p := ResolveProfile("antigravity", "gemini-3.7-flash-high")
+		if p.ContextWindow != 1048576 {
+			t.Errorf("ContextWindow = %d, want 1048576", p.ContextWindow)
+		}
+		if !p.Vision {
+			t.Errorf("expected Vision to be true")
+		}
+		if !p.PDF {
+			t.Errorf("expected PDF to be true")
+		}
+		if !p.AudioInput {
+			t.Errorf("expected AudioInput to be true")
+		}
+		if !p.VideoInput {
+			t.Errorf("expected VideoInput to be true")
+		}
+		if !p.Reasoning {
+			t.Errorf("expected Reasoning to be true")
+		}
+		if !p.Tools {
+			t.Errorf("expected Tools to be true")
+		}
+		if p.ThinkingFormat != "gemini-level" {
+			t.Errorf("ThinkingFormat = %q, want gemini-level", p.ThinkingFormat)
+		}
+		if p.ThinkingCanDisable {
+			t.Errorf("ThinkingCanDisable = true, want false for gemini-3")
+		}
+	})
+
+	t.Run("google gemini-2.5-flash preserves gemini-budget thinking format and range", func(t *testing.T) {
+		p := ResolveProfile("google", "gemini-2.5-flash")
+		if p.ContextWindow != 1048576 {
+			t.Errorf("ContextWindow = %d, want 1048576", p.ContextWindow)
+		}
+		if !p.Vision {
+			t.Errorf("expected Vision to be true")
+		}
+		if !p.PDF {
+			t.Errorf("expected PDF to be true")
+		}
+		if !p.Reasoning {
+			t.Errorf("expected Reasoning to be true")
+		}
+		if p.ThinkingFormat != "gemini-budget" {
+			t.Errorf("ThinkingFormat = %q, want gemini-budget", p.ThinkingFormat)
+		}
+		if p.ThinkingRange == nil || p.ThinkingRange.Max != 24576 {
+			t.Errorf("ThinkingRange = %+v, want max 24576", p.ThinkingRange)
+		}
+	})
+
+	t.Run("claude-opus-4.7 retains adaptive thinking format with enriched catalog modalities", func(t *testing.T) {
+		p := ResolveProfile("anthropic", "claude-opus-4.7")
+		if p.ContextWindow != 1000000 {
+			t.Errorf("ContextWindow = %d, want 1000000", p.ContextWindow)
+		}
+		if !p.Vision {
+			t.Errorf("expected Vision to be true")
+		}
+		if !p.PDF {
+			t.Errorf("expected PDF to be true")
+		}
+		if !p.Reasoning {
+			t.Errorf("expected Reasoning to be true")
+		}
+		if p.ThinkingFormat != "claude-adaptive" {
+			t.Errorf("ThinkingFormat = %q, want claude-adaptive", p.ThinkingFormat)
+		}
+	})
+
+	t.Run("unknown catalog model resolves dynamic limits and modalities", func(t *testing.T) {
+		p := ResolveProfile("custom", "nova-v1")
+		if p.ContextWindow != 500000 {
+			t.Errorf("ContextWindow = %d, want 500000", p.ContextWindow)
+		}
+		if p.MaxOutput != 32000 {
+			t.Errorf("MaxOutput = %d, want 32000", p.MaxOutput)
+		}
+		if !p.Vision {
+			t.Errorf("expected Vision to be true")
+		}
+		if !p.PDF {
+			t.Errorf("expected PDF to be true")
+		}
+		if !p.AudioInput {
+			t.Errorf("expected AudioInput to be true")
+		}
+		if !p.VideoInput {
+			t.Errorf("expected VideoInput to be true")
+		}
+		if !p.Reasoning {
+			t.Errorf("expected Reasoning to be true")
+		}
+		if !p.Tools {
+			t.Errorf("expected Tools to be true")
+		}
+		if p.ThinkingFormat != "" {
+			t.Errorf("ThinkingFormat = %q, want empty", p.ThinkingFormat)
+		}
+	})
+}
+

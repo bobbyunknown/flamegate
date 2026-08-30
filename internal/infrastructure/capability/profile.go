@@ -3,7 +3,33 @@ package capability
 import (
 	"regexp"
 	"strings"
+	"sync"
+
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/catalog"
 )
+
+// CatalogSource provides lookup of dynamic model specifications from a catalog service.
+type CatalogSource interface {
+	FindModel(provider, modelID string) (*catalog.ModelSpec, bool)
+}
+
+var (
+	catalogMu           sync.RWMutex
+	globalCatalogSource CatalogSource
+)
+
+// SetCatalogSource configures the global catalog source used for dynamic profile enrichment.
+func SetCatalogSource(src CatalogSource) {
+	catalogMu.Lock()
+	defer catalogMu.Unlock()
+	globalCatalogSource = src
+}
+
+func getCatalogSource() CatalogSource {
+	catalogMu.RLock()
+	defer catalogMu.RUnlock()
+	return globalCatalogSource
+}
 
 // Profile is the resolved capability descriptor for a single model. It captures
 // the input/output modalities, feature flags, thinking metadata, and token
@@ -175,13 +201,14 @@ func globToRegexp(pattern string) *regexp.Regexp {
 }
 
 // ResolveProfile resolves the full capability profile for a model using a
-// four-step fallback chain, each step merged over defaultProfile so the result
+// multi-step fallback chain, each step merged over defaultProfile so the result
 // is always complete:
 //
 //  1. provider-specific override (providerCapabilities[provider][model])
 //  2. canonical exact id (modelCapabilities), vendor prefix stripped
 //  3. glob pattern match (patternCapabilities), first match wins
-//  4. floor (defaultProfile)
+//  4. dynamic catalog enrichment (globalCatalogSource.FindModel)
+//  5. floor (defaultProfile)
 //
 // The provider argument is optional; pass "" when the upstream provider is
 // unknown.
@@ -191,35 +218,78 @@ func ResolveProfile(provider, model string) Profile {
 		return p
 	}
 
+	base := model
+	if i := strings.LastIndex(model, "/"); i >= 0 {
+		base = model[i+1:]
+	}
+
 	// 1. Provider-specific override, keyed by the full model id.
+	matched := false
 	if provider != "" {
 		if byModel, ok := providerCapabilities[provider]; ok {
 			if c, ok := byModel[model]; ok {
-				return c.merge(p)
+				p = c.merge(p)
+				matched = true
 			}
 		}
 	}
 
 	// 2. Canonical exact id. Strip any vendor prefix
 	// ("anthropic/claude-opus-4.7" -> "claude-opus-4.7") before lookup.
-	base := model
-	if i := strings.LastIndex(model, "/"); i >= 0 {
-		base = model[i+1:]
-	}
-	if c, ok := modelCapabilities[base]; ok {
-		return c.merge(p)
-	}
-	if c, ok := modelCapabilities[model]; ok {
-		return c.merge(p)
-	}
-
-	// 3. Glob pattern fallback.
-	for _, cp := range compiledPatterns {
-		if cp.re.MatchString(base) || cp.re.MatchString(model) {
-			return cp.caps.merge(p)
+	if !matched {
+		if c, ok := modelCapabilities[base]; ok {
+			p = c.merge(p)
+			matched = true
+		} else if c, ok := modelCapabilities[model]; ok {
+			p = c.merge(p)
+			matched = true
 		}
 	}
 
-	// 4. Floor.
+	// 3. Glob pattern fallback.
+	if !matched {
+		for _, cp := range compiledPatterns {
+			if cp.re.MatchString(base) || cp.re.MatchString(model) {
+				p = cp.caps.merge(p)
+				matched = true
+				break
+			}
+		}
+	}
+
+	// 4. Dynamic Catalog Enrichment via globalCatalogSource.
+	if src := getCatalogSource(); src != nil {
+		if spec, ok := src.FindModel(provider, model); ok && spec != nil {
+			if spec.Limits.Context > 0 {
+				p.ContextWindow = spec.Limits.Context
+			}
+			if spec.Limits.Output > 0 {
+				p.MaxOutput = spec.Limits.Output
+			}
+			if spec.HasVision() {
+				p.Vision = true
+			}
+			if spec.HasPDF() {
+				p.PDF = true
+			}
+			if spec.HasAudioInput() {
+				p.AudioInput = true
+			}
+			if spec.HasVideoInput() {
+				p.VideoInput = true
+			}
+			if spec.HasTools() {
+				p.Tools = true
+			}
+			if spec.Reasoning {
+				p.Reasoning = true
+			}
+			// CRITICAL PRESERVATION: DO NOT overwrite ThinkingFormat,
+			// ThinkingCanDisable, ThinkingLocked, or ThinkingRange if already
+			// set from core capability tables.
+		}
+	}
+
+	// 5. Floor.
 	return p
 }
