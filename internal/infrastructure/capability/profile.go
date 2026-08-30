@@ -251,7 +251,6 @@ func ResolveProfile(provider, model string) Profile {
 		for _, cp := range compiledPatterns {
 			if cp.re.MatchString(base) || cp.re.MatchString(model) {
 				p = cp.caps.merge(p)
-				matched = true
 				break
 			}
 		}
