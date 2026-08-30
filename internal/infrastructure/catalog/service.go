@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -25,6 +26,9 @@ type Service struct {
 	byProviderModel map[string]*ModelSpec
 	canonicalIndex  map[string]*ModelSpec
 	allModels       []ModelSpec
+	etag            string
+	lastSync        time.Time
+	httpClient      *http.Client
 }
 
 // CatalogService is an alias for Service.
@@ -37,12 +41,34 @@ func New(cfg Config) *Service {
 		byProviderModel: make(map[string]*ModelSpec),
 		canonicalIndex:  make(map[string]*ModelSpec),
 		allModels:       []ModelSpec{},
+		httpClient:      &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
 // NewService creates a new catalog Service instance.
 func NewService(cfg Config) *Service {
 	return New(cfg)
+}
+
+// ETag returns the current cached catalog ETag.
+func (s *Service) ETag() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.etag
+}
+
+// LastSync returns the timestamp of the last successful catalog sync.
+func (s *Service) LastSync() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastSync
+}
+
+// SetHTTPClient configures a custom HTTP client for remote catalog syncing.
+func (s *Service) SetHTTPClient(client *http.Client) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.httpClient = client
 }
 
 // LoadFromBytes unmarshals models.dev raw JSON data and populates internal indices.
