@@ -219,7 +219,7 @@ function UsageContent({
 
       {/* Main Layout Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] items-stretch">
-        {/* FlameGate Redesigned Routing Topology */}
+        {/* FlameGate Borderless Synapse Routing Topology */}
         <div className="flex flex-col rounded-xl border border-border bg-card shadow-xs overflow-hidden h-full">
           <RoutingTopology
             providers={providers}
@@ -298,7 +298,7 @@ function UsageContent({
   );
 }
 
-// ─── FlameGate Redesigned Routing Topology ────────────────────────────────────
+// ─── FlameGate Borderless Synapse Routing Topology ───────────────────────────
 
 interface TopoSource {
   key: string;
@@ -390,7 +390,7 @@ function RoutingTopology({
       } else if (isRecent) {
         sublabel = "Recently Routed";
       } else if (totalRequests > 0) {
-        sublabel = `${sharePct.toFixed(1)}% share · ${fmtNum(totalRequests)} reqs`;
+        sublabel = `${sharePct.toFixed(1)}% · ${fmtNum(totalRequests)} reqs`;
       }
 
       return {
@@ -524,7 +524,7 @@ function RoutingTopology({
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">No configured provider accounts</p>
         </div>
       ) : (
-        <div className="relative p-4 flex-1 flex flex-col justify-center">
+        <div className="relative p-6 flex-1 flex flex-col justify-center bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.04)_0%,transparent_70%)]">
           <style>{`
             @keyframes flameFlow {
               from { stroke-dashoffset: 24; }
@@ -536,42 +536,46 @@ function RoutingTopology({
           `}</style>
 
           <div ref={containerRef} className="relative w-full" style={{ height }}>
-            {/* SVG Connector layer */}
+            {/* SVG Dynamic Laser Connector layer */}
             {width > 0 && (
               <svg className="pointer-events-none absolute inset-0" width={width} height={height} viewBox={`0 0 ${width} ${height}`} fill="none">
                 <defs>
-                  <radialGradient id="hubAura" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#f97316" stopOpacity="0.15" />
+                  <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
+                    <stop offset="60%" stopColor="#f97316" stopOpacity="0.05" />
                     <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
                   </radialGradient>
-                  <linearGradient id="activeBeam" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <linearGradient id="laserBeam" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#f97316" />
-                    <stop offset="100%" stopColor="#ea580c" />
+                    <stop offset="50%" stopColor="#fb923c" />
+                    <stop offset="100%" stopColor="#fdba74" />
                   </linearGradient>
                 </defs>
 
-                {/* Hub background aura */}
-                <circle cx={cx} cy={cy} r={80} fill="url(#hubAura)" />
-                <circle cx={cx} cy={cy} r={46} stroke="var(--border)" strokeWidth={1} strokeOpacity={0.6} />
-                <circle cx={cx} cy={cy} r={72} stroke="var(--border)" strokeWidth={1} strokeDasharray="3 6" strokeOpacity={0.3} />
+                {/* Soft ambient center aura */}
+                <circle cx={cx} cy={cy} r={110} fill="url(#centerGlow)" />
+                <circle cx={cx} cy={cy} r={52} stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
+                <circle cx={cx} cy={cy} r={80} stroke="rgba(255,255,255,0.03)" strokeWidth={1} strokeDasharray="3 6" />
 
-                {/* Connection lines */}
+                {/* Laser connection lines */}
                 {placed.map((s) => {
                   const d = `M ${s.x} ${s.y} L ${cx} ${cy}`;
                   if (s.live) {
                     return (
                       <g key={s.key}>
                         {/* Glow halo */}
-                        <path d={d} stroke="#f97316" strokeWidth={4} strokeOpacity={0.35} strokeLinecap="round" />
+                        <path d={d} stroke="#f97316" strokeWidth={5} strokeOpacity={0.3} strokeLinecap="round" />
                         {/* Active animated pulsing beam */}
                         <path
                           d={d}
-                          stroke="url(#activeBeam)"
+                          stroke="url(#laserBeam)"
                           strokeWidth={2.5}
                           strokeDasharray="6 8"
                           strokeLinecap="round"
                           className="flame-flow-active"
                         />
+                        {/* Destination node pulse anchor */}
+                        <circle cx={s.x} cy={s.y} r={4} fill="#f97316" />
                       </g>
                     );
                   }
@@ -582,60 +586,64 @@ function RoutingTopology({
                         <path
                           d={d}
                           stroke="#f59e0b"
-                          strokeWidth={1.75}
+                          strokeWidth={1.5}
                           strokeLinecap="round"
-                          strokeOpacity={0.7}
+                          strokeOpacity={0.65}
                         />
+                        <circle cx={s.x} cy={s.y} r={3} fill="#f59e0b" opacity={0.8} />
                       </g>
                     );
                   }
 
-                  // Standby connection (Idle): Solid or crisp subtle line WITHOUT perpetual animation
+                  // Standby connection (Idle): Smooth, elegant, borderless laser trace
                   return (
                     <g key={s.key}>
                       <path
                         d={d}
-                        stroke="var(--border)"
-                        strokeWidth={1.5}
-                        strokeDasharray={s.requests > 0 ? undefined : "3 5"}
+                        stroke="rgba(255,255,255,0.08)"
+                        strokeWidth={1.25}
+                        strokeDasharray={s.requests > 0 ? "4 4" : "2 6"}
                         strokeLinecap="round"
-                        strokeOpacity={s.requests > 0 ? 0.7 : 0.4}
+                        strokeOpacity={s.requests > 0 ? 0.6 : 0.3}
                       />
+                      <circle cx={s.x} cy={s.y} r={2} fill="rgba(255,255,255,0.2)" />
                     </g>
                   );
                 })}
               </svg>
             )}
 
-            {/* FlameGate Core Router Hub (Center) */}
+            {/* FlameGate Centerpiece Emblem (Floating Hub) */}
             <div
-              className={`absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 rounded-2xl border bg-card px-4 py-3.5 shadow-md transition-all ${
-                anyLiveActive
-                  ? "border-orange-500/50 ring-4 ring-orange-500/10 shadow-orange-500/10"
-                  : "border-border"
-              }`}
+              className={`absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 select-none`}
               style={{ left: cx, top: cy }}
             >
-              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-muted/80 ring-1 ring-border shadow-xs">
-                <img src="/flamegate-favicon.svg" alt="FlameGate" className="h-6 w-6" />
+              <div
+                className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900/90 backdrop-blur-md shadow-2xl transition-all duration-500 ${
+                  anyLiveActive
+                    ? "ring-2 ring-orange-500/80 shadow-[0_0_30px_rgba(249,115,22,0.35)] scale-105"
+                    : "ring-1 ring-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:ring-white/20"
+                }`}
+              >
+                <img src="/flamegate-favicon.svg" alt="FlameGate" className="h-7 w-7 transition-transform duration-300 group-hover:scale-110" />
                 {anyLiveActive && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500" />
+                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-orange-500" />
                   </span>
                 )}
               </div>
               <div className="text-center">
-                <div className="text-xs font-bold leading-tight tracking-tight text-foreground flex items-center justify-center gap-1">
+                <div className="text-xs font-bold tracking-tight text-foreground flex items-center justify-center gap-1 drop-shadow-sm">
                   FlameGate
                 </div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  {n} route{n !== 1 ? "s" : ""} · {summary.avg_latency_ms > 0 ? `${summary.avg_latency_ms}ms` : "<1ms"}
+                <div className="text-[10px] font-mono tracking-wider text-muted-foreground uppercase opacity-80">
+                  {n} routes · {summary.avg_latency_ms > 0 ? `${summary.avg_latency_ms}ms` : "<1ms"}
                 </div>
               </div>
             </div>
 
-            {/* Orbiting Nodes (Providers & Chains) */}
+            {/* Orbiting Borderless Floating Nodes */}
             {width > 0 &&
               placed.map((s) => (
                 <div key={s.key} className="absolute z-10 -translate-x-1/2 -translate-y-1/2" style={{ left: s.x, top: s.y }}>
@@ -646,7 +654,7 @@ function RoutingTopology({
 
           {/* Expanded Chain Pipeline Detail */}
           {expandedChains.length > 0 && (
-            <div className="mt-4 space-y-2 border-t border-border pt-3">
+            <div className="mt-4 space-y-2 border-t border-border/60 pt-3">
               {expandedChains.map((s) => (
                 <ChainDetail key={s.key} chain={s.chain!} providerColors={providerColors} />
               ))}
@@ -658,6 +666,8 @@ function RoutingTopology({
   );
 }
 
+// ─── Borderless Floating Synapse Node ────────────────────────────────────────
+
 function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expanded: boolean; onToggle: () => void }) {
   const isChain = source.kind === "chain";
   const hasFallback = !!(source.chain?.fallback_provider && source.chain?.fallback_model);
@@ -666,71 +676,94 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
     <div
       role={isChain ? "button" : undefined}
       onClick={isChain ? onToggle : undefined}
-      className={`group flex w-[200px] items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 shadow-xs transition-all hover:border-foreground/40 hover:shadow-md ${
-        source.live
-          ? "border-orange-500/70 ring-2 ring-orange-500/25 bg-orange-500/10 dark:bg-orange-950/30"
-          : source.recent
-          ? "border-amber-500/60 ring-1 ring-amber-500/20 bg-amber-500/5 dark:bg-amber-950/20"
-          : source.requests > 0
-          ? "border-border hover:border-border/80"
-          : "border-dashed border-border/80 opacity-85"
-      } ${isChain ? "cursor-pointer select-none" : ""}`}
+      className={`group flex items-center gap-3 p-1.5 rounded-2xl transition-all duration-300 hover:bg-white/[0.04] ${
+        isChain ? "cursor-pointer select-none" : ""
+      }`}
+      style={{ minWidth: "170px" }}
     >
-      {isChain ? (
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Layers className="h-3.5 w-3.5" />
-        </span>
-      ) : (
-        <span
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted ring-1 ring-border"
-          style={{ boxShadow: `inset 3px 0 0 ${source.color}` }}
+      {/* Floating Orb Icon with ambient brand glow */}
+      <div className="relative shrink-0">
+        {/* Ambient brand glow aura */}
+        <div
+          className="absolute -inset-1 rounded-2xl opacity-40 blur-md transition-opacity duration-300 group-hover:opacity-75"
+          style={{
+            backgroundColor: source.live ? "#f97316" : source.recent ? "#f59e0b" : source.color || "#888",
+          }}
+        />
+
+        <div
+          className={`relative flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900/90 backdrop-blur-md shadow-lg transition-transform duration-300 group-hover:scale-105 ${
+            source.live
+              ? "ring-2 ring-orange-500 shadow-[0_0_16px_rgba(249,115,22,0.4)]"
+              : source.recent
+              ? "ring-1 ring-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+              : "ring-1 ring-white/10"
+          }`}
         >
-          {source.icon && (
+          {isChain ? (
+            <Layers className="h-4 w-4 text-primary" />
+          ) : source.icon ? (
             <img
               src={source.icon}
               alt=""
-              className="h-4 w-4 object-contain"
+              className="h-5 w-5 object-contain"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
             />
-          )}
-        </span>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-1">
-          <span className="truncate text-xs font-semibold text-foreground">{source.label}</span>
-          {source.live ? (
-            <span className="flex h-2 w-2 shrink-0 rounded-full bg-orange-500 animate-ping" />
-          ) : source.recent ? (
-            <span className="flex h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
           ) : (
-            <span className="text-[9px] font-mono text-muted-foreground">{source.share > 0 ? `${source.share.toFixed(0)}%` : ""}</span>
+            <span className="text-xs font-bold text-muted-foreground">{source.label.slice(0, 2).toUpperCase()}</span>
+          )}
+
+          {/* Status Badge Ring */}
+          {source.live ? (
+            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500" />
+            </span>
+          ) : source.recent ? (
+            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-zinc-900" />
+          ) : (
+            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500/80 ring-2 ring-zinc-900" />
           )}
         </div>
-        <span className="block truncate text-[10px] text-muted-foreground font-normal">{source.sublabel}</span>
       </div>
 
-      {isChain ? (
-        <div className="flex items-center gap-1">
-          {hasFallback && (
-            <span className="flex h-4 items-center rounded bg-amber-500/10 px-1 text-amber-600 dark:text-amber-400" title="Fallback configured">
-              <Shield className="h-2.5 w-2.5" />
-            </span>
+      {/* Floating Typography & Status */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-xs font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
+            {source.label}
+          </span>
+          {isChain && (
+            <ChevronRight className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
           )}
-          <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
         </div>
-      ) : (
-        <div className="h-1.5 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${Math.max(4, source.share)}%`,
-              backgroundColor: source.live ? "#f97316" : source.recent ? "#f59e0b" : source.color,
-            }}
-          />
+
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="truncate text-[10px] font-mono text-muted-foreground">
+            {source.sublabel}
+          </span>
         </div>
+
+        {/* Minimalist ambient traffic bar */}
+        {source.share > 0 && !isChain && (
+          <div className="h-0.5 w-12 overflow-hidden rounded-full bg-white/10 mt-1.5">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.max(8, source.share)}%`,
+                backgroundColor: source.live ? "#f97316" : source.recent ? "#f59e0b" : source.color,
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {isChain && hasFallback && (
+        <span className="flex h-4 items-center rounded bg-amber-500/10 px-1 text-amber-500" title="Fallback configured">
+          <Shield className="h-2.5 w-2.5" />
+        </span>
       )}
     </div>
   );
