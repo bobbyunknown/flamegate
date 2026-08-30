@@ -23,6 +23,8 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/auth"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/budget"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/cache"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/capability"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/catalog"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/extstore"
 	"github.com/bobbyunknown/flamegate/internal/shared/crypto"
@@ -70,6 +72,7 @@ type App struct {
 	healthChecker      *healthcheck.Checker
 	wasmEngine         *wasm.Engine
 	wasmModules        map[string]*wasm.Module
+	catalogSvc         *catalog.Service
 
 	// bg tracks long-lived background workers that touch the DB (health
 	// checker, cooldown sweeper) so shutdown can wait for
@@ -189,9 +192,26 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 			"note", "change it on first login via the onboarding flow")
 	}
 
+	catalogCachePath := cfg.Catalog.CachePath
+	if catalogCachePath == "" {
+		catalogCachePath = filepath.Join(dataDir, "models.json")
+	}
+	catalogSvc := catalog.NewService(catalog.Config{
+		Enabled:      cfg.Catalog.Enabled,
+		URL:          cfg.Catalog.URL,
+		SyncInterval: cfg.Catalog.SyncInterval,
+		CachePath:    catalogCachePath,
+		Timeout:      cfg.Catalog.Timeout,
+	})
+	if err := catalogSvc.LoadCache(); err != nil {
+		log.WithError(err).Warn("failed to load local catalog cache")
+	}
+	capability.SetCatalogSource(catalogSvc)
+
 	pricing := buildPricing()
 	modelPrices := buildModelPrices()
 	mtr := meter.New(db.Usage(), pricing, modelPrices)
+	mtr.SetPriceSource(catalogSvc)
 	mtr.EnableAsync(meter.AsyncConfig{
 		Enabled:              cfg.Meter.Async,
 		BatchSize:            cfg.Meter.BatchSize,
@@ -426,6 +446,7 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 		GuardrailTenantFlags: guardrailTenantPolicy,
 		Health:               db.Health(),
 		HealthChecker:        healthChecker,
+		Catalog:              catalogSvc,
 	})
 
 	srv := &http.Server{
@@ -463,6 +484,7 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 		healthChecker:      healthChecker,
 		wasmEngine:         wasmEngine,
 		wasmModules:        wasmModules,
+		catalogSvc:         catalogSvc,
 	}, nil
 }
 
@@ -554,6 +576,20 @@ func (a *App) Run(ctx context.Context) error {
 			log := a.log.WithField("component", "hot-reload")
 			reloader := wasm.NewHotReloader(a.wasmEngine, a.cfg.WASM.ExtDir, a.wasmModules, a.cfg.WASM.HotReloadInterval, log)
 			reloader.Run(ctx)
+		}()
+	}
+
+	// Dynamic catalog sync: background worker for models.dev catalog and pricing.
+	if a.catalogSvc != nil && a.cfg.Catalog.Enabled {
+		a.bg.Add(1)
+		go func() {
+			defer a.bg.Done()
+			a.catalogSvc.Start(ctx)
+		}()
+		go func() {
+			if err := a.catalogSvc.SyncNow(context.Background()); err != nil {
+				a.log.WithError(err).Debug("initial catalog sync failed")
+			}
 		}()
 	}
 

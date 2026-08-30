@@ -9,6 +9,7 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/config"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/auth"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/budget"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/catalog"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/guardrails"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/healthcheck"
@@ -67,6 +68,7 @@ type Handler struct {
 	guardrailTenantFlag *guardrails.SettingsTenantPolicy
 	health              *persistence.HealthRepo
 	healthChecker       *healthcheck.Checker
+	catalog             *catalog.Service
 }
 
 func New(d base.Deps) *Handler {
@@ -125,6 +127,7 @@ func New(d base.Deps) *Handler {
 		guardrailTenantFlag: d.GuardrailTenantFlags,
 		health:              d.Health,
 		healthChecker:       d.HealthChecker,
+		catalog:             d.Catalog,
 	}
 }
 

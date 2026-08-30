@@ -8,6 +8,7 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/config"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/auth"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/budget"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/catalog"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/extstore"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/guardrails"
@@ -42,6 +43,7 @@ type Deps struct {
 	Vault        *vault.Vault
 	BudgetEngine *budget.Engine
 	Updates      *update.Checker
+	Catalog      *catalog.Service
 
 	// WASM extension engine (nil if no extensions).
 	WASMEngine  *wasm.Engine

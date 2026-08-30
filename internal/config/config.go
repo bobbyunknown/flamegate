@@ -35,6 +35,7 @@ type Config struct {
 	Guardrails GuardrailsConfig `koanf:"guardrails"`
 	Docs       DocsConfig       `koanf:"docs"`
 	WASM       WASMConfig       `koanf:"wasm"`
+	Catalog    CatalogConfig    `koanf:"catalog"`
 }
 
 // ServerConfig controls the HTTP listener.
@@ -215,6 +216,22 @@ type DocsConfig struct {
 	Enabled bool `koanf:"enabled"`
 }
 
+// CatalogConfig controls the models.dev dynamic model catalog and pricing sync.
+type CatalogConfig struct {
+	// Enabled controls dynamic catalog synchronization. Default: true.
+	Enabled bool `koanf:"enabled"`
+	// URL is the upstream JSON endpoint. Default: "https://models.dev/api.json".
+	URL string `koanf:"url"`
+	// SyncInterval is how often the background worker synchronizes data. Default: 24h.
+	SyncInterval time.Duration `koanf:"sync_interval"`
+	// CachePath is the local file path for disk caching. Default: ~/.flamegate/models.json.
+	CachePath string `koanf:"cache_path"`
+	// Timeout bounds upstream HTTP catalog requests. Default: 30s.
+	Timeout time.Duration `koanf:"timeout"`
+	// AutoEnrichExt automatically enriches discovered WASM extension models. Default: true.
+	AutoEnrichExt bool `koanf:"auto_enrich_ext"`
+}
+
 // WASMConfig controls the WASM extension engine.
 type WASMConfig struct {
 	// ExtDir is the directory where installed extensions are stored.
@@ -326,6 +343,13 @@ func Default() Config {
 			StoreIndexURL:     "https://raw.githubusercontent.com/bobbyunknown/flamegate-ext/main/store/index.json",
 			GithubTokenEnv:    "GITHUB_TOKEN",
 			StoreCacheTTL:     10 * time.Minute,
+		},
+		Catalog: CatalogConfig{
+			Enabled:       true,
+			URL:           "https://models.dev/api.json",
+			SyncInterval:  24 * time.Hour,
+			Timeout:       30 * time.Second,
+			AutoEnrichExt: true,
 		},
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/capability"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/catalog"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 )
 
@@ -110,3 +112,59 @@ func TestExtensionModelEntries_SourceField(t *testing.T) {
 	assert.Equal(t, "test", entries[0].Provider)
 	assert.Equal(t, "test/m1", entries[0].ID)
 }
+
+func TestEnrichModelEntry_WithCatalogAndCapabilities(t *testing.T) {
+	catSvc := catalog.NewService(catalog.Config{})
+	err := catSvc.LoadFromBytes([]byte(`{
+		"google": {
+			"id": "google",
+			"name": "Google",
+			"models": {
+				"gemini-2.5-flash": {
+					"id": "gemini-2.5-flash",
+					"name": "Gemini 2.5 Flash",
+					"tool_call": true,
+					"modalities": {
+						"input": ["text", "image", "audio", "video", "pdf"],
+						"output": ["text"]
+					},
+					"cost": {
+						"input": 0.3,
+						"output": 2.5,
+						"cache_read": 0.03
+					},
+					"limit": {
+						"context": 1048576,
+						"output": 65536
+					}
+				}
+			}
+		}
+	}`))
+	require.NoError(t, err)
+
+	capability.SetCatalogSource(catSvc)
+	defer capability.SetCatalogSource(nil)
+
+	h := &Handler{
+		catalog: catSvc,
+	}
+
+	entry := modelEntry{
+		ID:       "antigravity/gemini-2.5-flash",
+		Provider: "antigravity",
+		Kind:     "llm",
+		Name:     "Gemini 2.5 Flash",
+	}
+
+	h.enrichModelEntry(&entry)
+
+	assert.Equal(t, 1048576, entry.ContextWindow)
+	assert.Equal(t, 65536, entry.MaxOutputTokens)
+	assert.Contains(t, entry.InputModalities, "image")
+	assert.Contains(t, entry.InputModalities, "pdf")
+	require.NotNil(t, entry.Pricing)
+	assert.Equal(t, 0.3, entry.Pricing.InputPerM)
+	assert.Equal(t, 2.5, entry.Pricing.OutputPerM)
+}
+

@@ -13,10 +13,12 @@ import (
 
 // Config defines configuration options for the catalog service.
 type Config struct {
+	Enabled      bool          `json:"enabled,omitempty"`
 	URL          string        `json:"url,omitempty"`
 	CachePath    string        `json:"cache_path,omitempty"`
 	AutoSync     bool          `json:"auto_sync,omitempty"`
 	SyncInterval time.Duration `json:"sync_interval,omitempty"`
+	Timeout      time.Duration `json:"timeout,omitempty"`
 }
 
 // Service manages model catalog lookup, alias resolution, and pricing.

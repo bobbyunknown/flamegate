@@ -9,21 +9,34 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	core "github.com/bobbyunknown/flamegate/internal/domain"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/capability"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 )
 
 // modelEntry is one entry in a /v1/models listing, in the OpenAI shape plus
-// FlameGate extensions (provider, kind, dimensions).
+// FlameGate extensions (provider, kind, dimensions, limits, modalities, pricing).
 type modelEntry struct {
-	ID         string `json:"id"`
-	Object     string `json:"object"`
-	OwnedBy    string `json:"owned_by"`
-	Provider   string `json:"provider,omitempty"`
-	Kind       string `json:"kind,omitempty"`
-	Name       string `json:"name,omitempty"`
-	Dimensions int    `json:"dimensions,omitempty"`
-	Source     string `json:"source,omitempty"`
+	ID               string           `json:"id"`
+	Object           string           `json:"object"`
+	OwnedBy          string           `json:"owned_by"`
+	Provider         string           `json:"provider,omitempty"`
+	Kind             string           `json:"kind,omitempty"`
+	Name             string           `json:"name,omitempty"`
+	Dimensions       int              `json:"dimensions,omitempty"`
+	Source           string           `json:"source,omitempty"`
+	ContextWindow    int              `json:"context_window,omitempty"`
+	MaxOutputTokens  int              `json:"max_output_tokens,omitempty"`
+	InputModalities  []string         `json:"input_modalities,omitempty"`
+	OutputModalities []string         `json:"output_modalities,omitempty"`
+	Pricing          *modelPricingDTO `json:"pricing,omitempty"`
+}
+
+type modelPricingDTO struct {
+	InputPerM      float64 `json:"input_per_m"`
+	OutputPerM     float64 `json:"output_per_m"`
+	CachedReadPerM float64 `json:"cached_read_per_m,omitempty"`
+	ReasoningPerM  float64 `json:"reasoning_per_m,omitempty"`
 }
 
 // listModels is the shared model-listing logic used by both the raw-Chi
@@ -40,7 +53,7 @@ func (s *Handler) listModels(ctx context.Context, tenantID string) []modelEntry 
 	chains, err := s.chains.ListByTenant(ctx, tenantID)
 	if err == nil {
 		for _, c := range chains {
-			data = appendModelEntry(data, seen, modelEntry{
+			data = s.appendModelEntry(data, seen, modelEntry{
 				ID: c.Name, Object: "model", OwnedBy: "combo", Kind: string(core.ServiceLLM), Name: c.Name,
 			})
 		}
@@ -53,7 +66,7 @@ func (s *Handler) listModels(ctx context.Context, tenantID string) []modelEntry 
 		if !usableProviders[pm.Provider] {
 			continue
 		}
-		data = appendModelEntry(data, seen, modelEntry{
+		data = s.appendModelEntry(data, seen, modelEntry{
 			ID:       pm.Provider + "/" + pm.Model.ID,
 			Object:   "model",
 			OwnedBy:  pm.Provider,
@@ -72,7 +85,7 @@ func (s *Handler) listModels(ctx context.Context, tenantID string) []modelEntry 
 			continue
 		}
 		for _, lm := range models {
-			data = appendModelEntry(data, seen, modelEntry{
+			data = s.appendModelEntry(data, seen, modelEntry{
 				ID:       provider + "/" + lm.ID,
 				Object:   "model",
 				OwnedBy:  provider,
@@ -87,7 +100,7 @@ func (s *Handler) listModels(ctx context.Context, tenantID string) []modelEntry 
 	if s.db != nil {
 		if extModels, err := s.db.ExtensionModels().ListByTenant(ctx, tenantID); err == nil && len(extModels) > 0 {
 			for _, entry := range extensionModelEntries(extModels) {
-				data = appendModelEntry(data, seen, entry)
+				data = s.appendModelEntry(data, seen, entry)
 			}
 		}
 	}
@@ -132,7 +145,7 @@ func (s *Handler) HandleListModelsByKind(w http.ResponseWriter, r *http.Request)
 		if !usableProviders[pm.Provider] {
 			continue
 		}
-		data = appendModelEntry(data, seen, modelEntry{
+		data = s.appendModelEntry(data, seen, modelEntry{
 			ID:         pm.Provider + "/" + pm.Model.ID,
 			Object:     "model",
 			OwnedBy:    pm.Provider,
@@ -210,7 +223,61 @@ func (s *Handler) usableModelProviders(ctx context.Context, tenantID string) map
 	return usable
 }
 
-func appendModelEntry(data []modelEntry, seen map[string]struct{}, entry modelEntry) []modelEntry {
+func (s *Handler) enrichModelEntry(entry *modelEntry) {
+	if entry.Kind != string(core.ServiceLLM) && entry.Kind != "" {
+		return
+	}
+	provider := entry.Provider
+	modelID := entry.ID
+	if provider != "" && strings.HasPrefix(modelID, provider+"/") {
+		modelID = strings.TrimPrefix(modelID, provider+"/")
+	}
+
+	prof := capability.ResolveProfile(provider, modelID)
+	if prof.ContextWindow > 0 {
+		entry.ContextWindow = prof.ContextWindow
+	}
+	if prof.MaxOutput > 0 {
+		entry.MaxOutputTokens = prof.MaxOutput
+	}
+
+	inputMods := []string{"text"}
+	if prof.Vision {
+		inputMods = append(inputMods, "image")
+	}
+	if prof.PDF {
+		inputMods = append(inputMods, "pdf")
+	}
+	if prof.AudioInput {
+		inputMods = append(inputMods, "audio")
+	}
+	if prof.VideoInput {
+		inputMods = append(inputMods, "video")
+	}
+	entry.InputModalities = inputMods
+
+	outputMods := []string{"text"}
+	if prof.ImageOutput {
+		outputMods = append(outputMods, "image")
+	}
+	if prof.AudioOutput {
+		outputMods = append(outputMods, "audio")
+	}
+	entry.OutputModalities = outputMods
+
+	if s.catalog != nil {
+		if p, ok := s.catalog.GetPrice(provider, modelID); ok {
+			entry.Pricing = &modelPricingDTO{
+				InputPerM:      p.InputPerM,
+				OutputPerM:     p.OutputPerM,
+				CachedReadPerM: p.CachedInputPerM,
+				ReasoningPerM:  p.ReasoningPerM,
+			}
+		}
+	}
+}
+
+func (s *Handler) appendModelEntry(data []modelEntry, seen map[string]struct{}, entry modelEntry) []modelEntry {
 	if entry.ID == "" {
 		return data
 	}
@@ -218,6 +285,7 @@ func appendModelEntry(data []modelEntry, seen map[string]struct{}, entry modelEn
 		return data
 	}
 	seen[entry.ID] = struct{}{}
+	s.enrichModelEntry(&entry)
 	return append(data, entry)
 }
 
@@ -296,8 +364,8 @@ func splitExtensionModelID(id string) (provider, model string) {
 	return provider, model
 }
 
-// handleModelInfo serves GET /v1/models/info?id=<provider/model>: it returns
-// metadata for a single model (kind, dimensions, provider, name).
+// HandleModelInfo serves GET /v1/models/info?id=<provider/model>: it returns
+// metadata for a single model (kind, dimensions, provider, name, limits, modalities, pricing).
 func (s *Handler) HandleModelInfo(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
@@ -316,18 +384,85 @@ func (s *Handler) HandleModelInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spec, found := connectors.FindModel(provider, model)
-	if !found {
-		WriteError(w, http.StatusNotFound, "unknown model: "+id)
+	// 1. Static connector registry
+	if spec, found := connectors.FindModel(provider, model); found {
+		entry := modelEntry{
+			ID:         id,
+			Object:     "model",
+			OwnedBy:    provider,
+			Provider:   provider,
+			Kind:       string(spec.Kind),
+			Name:       spec.Name,
+			Dimensions: spec.Dimensions,
+		}
+		s.enrichModelEntry(&entry)
+		writeJSON(w, http.StatusOK, map[string]any{
+			"id":                entry.ID,
+			"provider":          entry.Provider,
+			"model":             spec.ID,
+			"name":              entry.Name,
+			"kind":              entry.Kind,
+			"dimensions":        entry.Dimensions,
+			"context_window":    entry.ContextWindow,
+			"max_output_tokens": entry.MaxOutputTokens,
+			"input_modalities":  entry.InputModalities,
+			"output_modalities": entry.OutputModalities,
+			"pricing":           entry.Pricing,
+		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
-		"id":         id,
-		"provider":   provider,
-		"model":      spec.ID,
-		"name":       spec.Name,
-		"kind":       string(spec.Kind),
-		"dimensions": spec.Dimensions,
-	})
+	// 2. ExtensionModels from DB
+	if s.db != nil {
+		if extModel, err := s.db.ExtensionModels().Get(r.Context(), id); err == nil && extModel.ID != "" {
+			entry := extensionModelToEntry(extModel)
+			s.enrichModelEntry(&entry)
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id":                entry.ID,
+				"provider":          entry.Provider,
+				"model":             model,
+				"name":              entry.Name,
+				"kind":              entry.Kind,
+				"dimensions":        entry.Dimensions,
+				"context_window":    entry.ContextWindow,
+				"max_output_tokens": entry.MaxOutputTokens,
+				"input_modalities":  entry.InputModalities,
+				"output_modalities": entry.OutputModalities,
+				"pricing":           entry.Pricing,
+				"source":            entry.Source,
+			})
+			return
+		}
+	}
+
+	// 3. Dynamic Catalog Service
+	if s.catalog != nil {
+		if catModel, ok := s.catalog.FindModel(provider, model); ok && catModel != nil {
+			entry := modelEntry{
+				ID:       id,
+				Object:   "model",
+				OwnedBy:  provider,
+				Provider: provider,
+				Kind:     string(core.ServiceLLM),
+				Name:     catModel.Name,
+			}
+			s.enrichModelEntry(&entry)
+			writeJSON(w, http.StatusOK, map[string]any{
+				"id":                entry.ID,
+				"provider":          entry.Provider,
+				"model":             model,
+				"name":              entry.Name,
+				"kind":              entry.Kind,
+				"dimensions":        entry.Dimensions,
+				"context_window":    entry.ContextWindow,
+				"max_output_tokens": entry.MaxOutputTokens,
+				"input_modalities":  entry.InputModalities,
+				"output_modalities": entry.OutputModalities,
+				"pricing":           entry.Pricing,
+			})
+			return
+		}
+	}
+
+	WriteError(w, http.StatusNotFound, "unknown model: "+id)
 }
