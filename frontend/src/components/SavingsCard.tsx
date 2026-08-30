@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback } from "react";
 import { toPng } from "html-to-image";
-import { Download, Check } from "lucide-react";
+import { Download, Check, Flame } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { UsageInsights } from "../lib/api";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -487,33 +488,32 @@ export function SavingsCardShareButton({
       </div>
 
       {/* Download button */}
-      <button
+      <Button
+        variant="outline"
+        size="xs"
         onClick={handleShare}
-        disabled={generating || summary.total_requests === 0}
-        className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg bg-accent-600 px-3 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-accent-500 dark:hover:bg-accent-400"
+        disabled={generating}
+        className="gap-1.5 font-medium border-border hover:bg-muted/80 hover:text-foreground text-xs shadow-xs"
+        title={summary.total_requests === 0 ? "Download preview savings card" : "Download savings card infographic"}
       >
         {done ? (
           <>
-            <Check className="h-3.5 w-3.5" />
+            <Check className="h-3.5 w-3.5 text-emerald-500" />
             <span className="hidden sm:inline">Downloaded!</span>
           </>
         ) : generating ? (
           <>
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
             <span className="hidden sm:inline">Generating…</span>
           </>
         ) : (
           <>
-            <img
-              src="/flamegate-favicon.svg"
-              alt=""
-              className="h-3.5 w-3.5 object-contain"
-            />
+            <Flame className="h-3.5 w-3.5 text-orange-500 fill-orange-500/20" />
             <span className="hidden sm:inline">Savings Card</span>
-            <Download className="h-3.5 w-3.5 opacity-70" />
+            <Download className="h-3 w-3 text-muted-foreground ml-0.5" />
           </>
         )}
-      </button>
+      </Button>
     </>
   );
 }

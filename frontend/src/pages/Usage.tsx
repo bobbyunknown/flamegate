@@ -9,7 +9,17 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from "recharts";
-import { api, connectUsageStream, type ProviderUsage, type RecentActivity, type ModelUsage, type SeriesPoint, type Chain, type Provider } from "../lib/api";
+import {
+  api,
+  connectUsageStream,
+  type ProviderUsage,
+  type RecentActivity,
+  type ModelUsage,
+  type SeriesPoint,
+  type Chain,
+  type Provider,
+  type Account,
+} from "../lib/api";
 import { PageHeader } from "@/components/composite/page-header";
 import { Spinner } from "@/components/ui/spinner";
 import { ErrorCard } from "@/components/composite/error-card";
@@ -26,6 +36,7 @@ const periods = [
 
 const USAGE_REFRESH_DEBOUNCE_MS = 8000;
 const LIVE_ACTIVE_WINDOW_MS = 4500;
+const RECENT_ACTIVE_WINDOW_MS = 15000;
 
 export function UsagePage() {
   const [period, setPeriod] = useState("today");
@@ -62,6 +73,12 @@ export function UsagePage() {
     staleTime: 60_000,
   });
 
+  const accounts = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => api.listAccounts(),
+    staleTime: 30_000,
+  });
+
   // Listen to SSE live usage events for real-time traffic reactivity
   useEffect(() => {
     const scheduleRefresh = () => {
@@ -77,7 +94,7 @@ export function UsagePage() {
       if (ev?.provider) {
         setLiveEventMap((prev) => ({
           ...prev,
-          [ev.provider]: Date.now(),
+          [ev.provider.toLowerCase()]: Date.now(),
         }));
       }
       scheduleRefresh();
@@ -95,7 +112,8 @@ export function UsagePage() {
   const handleRefresh = () => {
     qc.invalidateQueries({ queryKey: ["usage-insights", period] });
     qc.invalidateQueries({ queryKey: ["usage-models", period] });
-    toast.success("Usage data refreshed", "All usage metrics and breakdowns have been re-fetched from the server.");
+    qc.invalidateQueries({ queryKey: ["accounts"] });
+    toast.success("Usage data refreshed", "All usage metrics, topology connections, and breakdowns have been re-fetched.");
   };
 
   return (
@@ -137,6 +155,7 @@ export function UsagePage() {
             models={modelUsage.data?.models ?? []}
             chains={chains.data?.chains ?? []}
             providerCatalog={providerCatalog.data?.providers ?? []}
+            accounts={accounts.data?.accounts ?? []}
             liveEventMap={liveEventMap}
             period={period}
           />
@@ -150,6 +169,7 @@ function UsageContent({
   models,
   chains,
   providerCatalog,
+  accounts,
   liveEventMap,
   period,
 }: {
@@ -157,6 +177,7 @@ function UsageContent({
   models: ModelUsage[];
   chains: Chain[];
   providerCatalog: Provider[];
+  accounts: Account[];
   liveEventMap: Record<string, number>;
   period: string;
 }) {
@@ -204,6 +225,7 @@ function UsageContent({
             providers={providers}
             chains={chains}
             providerCatalog={providerCatalog}
+            accounts={accounts}
             liveEventMap={liveEventMap}
             summary={summary}
           />
@@ -290,6 +312,8 @@ interface TopoSource {
   requests: number;
   tokens: number;
   live: boolean;
+  recent: boolean;
+  healthy: boolean;
   chain?: Chain;
 }
 
@@ -297,12 +321,14 @@ function RoutingTopology({
   providers,
   chains,
   providerCatalog,
+  accounts,
   liveEventMap,
   summary,
 }: {
   providers: ProviderUsage[];
   chains: Chain[];
   providerCatalog: Provider[];
+  accounts: Account[];
   liveEventMap: Record<string, number>;
   summary: any;
 }) {
@@ -311,7 +337,7 @@ function RoutingTopology({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(Date.now());
 
-  // Tick clock every second for live animation expiration
+  // Tick clock every second for live / recent animation expiration
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -319,36 +345,89 @@ function RoutingTopology({
 
   const providerColors = useMemo(() => {
     const m = new Map<string, string>();
-    providerCatalog.forEach((p) => m.set(p.id, p.color));
+    providerCatalog.forEach((p) => m.set(p.id.toLowerCase(), p.color));
     return m;
   }, [providerCatalog]);
 
   const sources = useMemo<TopoSource[]>(() => {
-    const provs = providers
-      .filter((p) => p.total_requests > 0 || p.share_pct > 0)
-      .sort((a, b) => b.total_requests - a.total_requests)
-      .map<TopoSource>((p) => {
-        const lastActive = liveEventMap[p.provider] ?? 0;
-        const isLive = now - lastActive < LIVE_ACTIVE_WINDOW_MS;
-        return {
-          key: `provider:${p.provider}`,
-          kind: "provider",
-          id: p.provider,
-          label: p.display_name || p.provider,
-          sublabel: `${p.share_pct.toFixed(1)}% share · ${fmtNum(p.total_requests)} reqs`,
-          color: p.color || "var(--color-accent-500)",
-          icon: `/providers/${p.provider}.png`,
-          share: p.share_pct,
-          requests: p.total_requests,
-          tokens: p.prompt_tokens + p.completion_tokens,
-          live: isLive,
-        };
-      });
+    const usageByProvider = new Map<string, ProviderUsage>();
+    providers.forEach((p) => usageByProvider.set(p.provider.toLowerCase(), p));
+
+    const catalogByProvider = new Map<string, Provider>();
+    providerCatalog.forEach((p) => catalogByProvider.set(p.id.toLowerCase(), p));
+
+    // Gather all configured/active providers so they stay visible at rest
+    const configuredProviderIds = new Set<string>();
+    accounts.forEach((acc) => {
+      if (!acc.disabled && acc.provider) {
+        configuredProviderIds.add(acc.provider.toLowerCase());
+      }
+    });
+
+    // Also include providers with recorded requests in current period
+    providers.forEach((p) => {
+      if (p.total_requests > 0) {
+        configuredProviderIds.add(p.provider.toLowerCase());
+      }
+    });
+
+    const provs: TopoSource[] = Array.from(configuredProviderIds).map((pid) => {
+      const pUsage = usageByProvider.get(pid);
+      const cat = catalogByProvider.get(pid);
+      const displayName = cat?.display_name || pUsage?.display_name || pid;
+      const color = cat?.color || pUsage?.color || "var(--color-accent-500)";
+      const totalRequests = pUsage?.total_requests ?? 0;
+      const sharePct = pUsage?.share_pct ?? 0;
+      const tokens = (pUsage?.prompt_tokens ?? 0) + (pUsage?.completion_tokens ?? 0);
+
+      const lastActive = liveEventMap[pid] ?? 0;
+      const isLive = now - lastActive < LIVE_ACTIVE_WINDOW_MS;
+      const isRecent = !isLive && now - lastActive < RECENT_ACTIVE_WINDOW_MS;
+
+      let sublabel = "Connected · Standby";
+      if (isLive) {
+        sublabel = "Streaming Live Request";
+      } else if (isRecent) {
+        sublabel = "Recently Routed";
+      } else if (totalRequests > 0) {
+        sublabel = `${sharePct.toFixed(1)}% share · ${fmtNum(totalRequests)} reqs`;
+      }
+
+      return {
+        key: `provider:${pid}`,
+        kind: "provider",
+        id: pid,
+        label: displayName,
+        sublabel,
+        color,
+        icon: `/providers/${pid}.png`,
+        share: sharePct,
+        requests: totalRequests,
+        tokens,
+        live: isLive,
+        recent: isRecent,
+        healthy: true,
+      };
+    });
+
+    // Sort providers: Live -> Recent -> Most requests -> Alphabetical
+    provs.sort((a, b) => {
+      if (a.live && !b.live) return -1;
+      if (!a.live && b.live) return 1;
+      if (a.recent && !b.recent) return -1;
+      if (!a.recent && b.recent) return 1;
+      if (b.requests !== a.requests) return b.requests - a.requests;
+      return a.label.localeCompare(b.label);
+    });
 
     const chs = chains.map<TopoSource>((c) => {
       const isAnyStepLive = c.steps.some(
-        (s) => now - (liveEventMap[s.provider] ?? 0) < LIVE_ACTIVE_WINDOW_MS
+        (s) => now - (liveEventMap[s.provider.toLowerCase()] ?? 0) < LIVE_ACTIVE_WINDOW_MS
       );
+      const isAnyStepRecent = !isAnyStepLive && c.steps.some(
+        (s) => now - (liveEventMap[s.provider.toLowerCase()] ?? 0) < RECENT_ACTIVE_WINDOW_MS
+      );
+
       return {
         key: `chain:${c.id}`,
         kind: "chain",
@@ -360,12 +439,14 @@ function RoutingTopology({
         requests: 0,
         tokens: 0,
         live: isAnyStepLive,
+        recent: isAnyStepRecent,
+        healthy: true,
         chain: c,
       };
     });
 
     return [...provs, ...chs];
-  }, [providers, chains, liveEventMap, now]);
+  }, [providers, chains, providerCatalog, accounts, liveEventMap, now]);
 
   useLayoutEffect(() => {
     const c = containerRef.current;
@@ -432,7 +513,7 @@ function RoutingTopology({
             </Badge>
           )}
           <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider hidden sm:inline">
-            {providers.filter((p) => p.total_requests > 0).length} active · {chains.length} chains
+            {sources.filter((s) => s.kind === "provider").length} connected · {chains.length} chains
           </span>
         </div>
       </div>
@@ -440,7 +521,7 @@ function RoutingTopology({
       {sources.length === 0 ? (
         <div className="m-6 flex h-[220px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-muted/30">
           <Layers className="h-8 w-8 text-muted-foreground opacity-30" />
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">No active provider accounts</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">No configured provider accounts</p>
         </div>
       ) : (
         <div className="relative p-4 flex-1 flex flex-col justify-center">
@@ -481,7 +562,7 @@ function RoutingTopology({
                     return (
                       <g key={s.key}>
                         {/* Glow halo */}
-                        <path d={d} stroke="#f97316" strokeWidth={4} strokeOpacity={0.3} strokeLinecap="round" />
+                        <path d={d} stroke="#f97316" strokeWidth={4} strokeOpacity={0.35} strokeLinecap="round" />
                         {/* Active animated pulsing beam */}
                         <path
                           d={d}
@@ -495,7 +576,21 @@ function RoutingTopology({
                     );
                   }
 
-                  // Standby connection (Idle): Solid or crisp dotted line WITHOUT perpetual animation
+                  if (s.recent) {
+                    return (
+                      <g key={s.key}>
+                        <path
+                          d={d}
+                          stroke="#f59e0b"
+                          strokeWidth={1.75}
+                          strokeLinecap="round"
+                          strokeOpacity={0.7}
+                        />
+                      </g>
+                    );
+                  }
+
+                  // Standby connection (Idle): Solid or crisp subtle line WITHOUT perpetual animation
                   return (
                     <g key={s.key}>
                       <path
@@ -504,7 +599,7 @@ function RoutingTopology({
                         strokeWidth={1.5}
                         strokeDasharray={s.requests > 0 ? undefined : "3 5"}
                         strokeLinecap="round"
-                        strokeOpacity={s.requests > 0 ? 0.7 : 0.35}
+                        strokeOpacity={s.requests > 0 ? 0.7 : 0.4}
                       />
                     </g>
                   );
@@ -573,10 +668,12 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
       onClick={isChain ? onToggle : undefined}
       className={`group flex w-[200px] items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 shadow-xs transition-all hover:border-foreground/40 hover:shadow-md ${
         source.live
-          ? "border-orange-500/60 ring-2 ring-orange-500/20 bg-orange-500/5 dark:bg-orange-950/20"
+          ? "border-orange-500/70 ring-2 ring-orange-500/25 bg-orange-500/10 dark:bg-orange-950/30"
+          : source.recent
+          ? "border-amber-500/60 ring-1 ring-amber-500/20 bg-amber-500/5 dark:bg-amber-950/20"
           : source.requests > 0
           ? "border-border hover:border-border/80"
-          : "border-dashed border-border/70 opacity-75"
+          : "border-dashed border-border/80 opacity-85"
       } ${isChain ? "cursor-pointer select-none" : ""}`}
     >
       {isChain ? (
@@ -605,7 +702,9 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
         <div className="flex items-center justify-between gap-1">
           <span className="truncate text-xs font-semibold text-foreground">{source.label}</span>
           {source.live ? (
-            <span className="flex h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500 animate-ping" />
+            <span className="flex h-2 w-2 shrink-0 rounded-full bg-orange-500 animate-ping" />
+          ) : source.recent ? (
+            <span className="flex h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
           ) : (
             <span className="text-[9px] font-mono text-muted-foreground">{source.share > 0 ? `${source.share.toFixed(0)}%` : ""}</span>
           )}
@@ -628,7 +727,7 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
             className="h-full rounded-full transition-all"
             style={{
               width: `${Math.max(4, source.share)}%`,
-              backgroundColor: source.live ? "#f97316" : source.color,
+              backgroundColor: source.live ? "#f97316" : source.recent ? "#f59e0b" : source.color,
             }}
           />
         </div>
@@ -653,7 +752,7 @@ function ChainDetail({ chain, providerColors }: { chain: Chain; providerColors: 
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         {chain.steps.map((step, i) => {
-          const color = providerColors.get(step.provider) || "var(--border)";
+          const color = providerColors.get(step.provider.toLowerCase()) || "var(--border)";
           return (
             <div key={i} className="flex items-center gap-2">
               {i > 0 && <ArrowRight className="h-3 w-3 text-muted-foreground opacity-50" strokeWidth={2} />}
@@ -751,7 +850,7 @@ function UsageInsightsCard({ data }: { data: any }) {
                 key={p.provider} 
                 className="h-full transition-all"
                 style={{ width: `${p.share_pct}%`, backgroundColor: p.color || "var(--color-chart-1)" }} 
-                title={`${p.provider_name || p.provider}: ${p.share_pct.toFixed(1)}%`}
+                title={`${p.display_name || p.provider}: ${p.share_pct.toFixed(1)}%`}
               />
             ))}
           </div>

@@ -125,10 +125,10 @@ export function TokenSavingsBreakdown({ savings, totalRequests, insights, period
   if (ponytailRequests > 0) badges.push({ label: "PONY", pct: totalPonytailPct, color: "#14b8a6" });
 
   return (
-    <div className="rounded-xl border border-border bg-background shadow-sm overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3 bg-muted">
+    <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3 bg-muted/40">
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-accent-500/15 text-accent-600 dark:text-accent-400">
+          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Scissors className="h-3.5 w-3.5" />
           </span>
           <h3 className="text-sm font-semibold tracking-tight">Optimization Engine</h3>
