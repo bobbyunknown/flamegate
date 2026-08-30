@@ -30,6 +30,11 @@ type Price struct {
 	ReasoningPerM   float64 // reasoning/extended-thinking output tokens
 }
 
+// PriceSource dynamically resolves model pricing from an external catalog.
+type PriceSource interface {
+	GetPrice(provider, model string) (Price, bool)
+}
+
 // UsageStore is the persistence surface Meter needs. *persistence.UsageRepo satisfies
 // it for both SQLite and Postgres.
 type UsageStore interface {
@@ -42,6 +47,7 @@ type Meter struct {
 	usage       UsageStore
 	pricing     map[string]Price // provider-level fallback
 	modelPrices map[string]Price // provider/model-level (e.g. "openai/gpt-4o")
+	priceSource PriceSource      // dynamic price provider (e.g. Model Catalog)
 	hub         *usagehub.Hub    // notifies subscribers of new usage records
 	async       *AsyncWriter
 }
@@ -50,6 +56,9 @@ type Meter struct {
 // after every successful Record call. This enables SSE-based near-real-time
 // dashboard updates.
 func (m *Meter) SetHub(h *usagehub.Hub) { m.hub = h }
+
+// SetPriceSource installs a dynamic price provider (e.g. Model Catalog).
+func (m *Meter) SetPriceSource(src PriceSource) { m.priceSource = src }
 
 // New builds a Meter backed by a usage repo and pricing tables.
 func New(usage UsageStore, pricing map[string]Price, modelPrices map[string]Price) *Meter {
@@ -135,8 +144,14 @@ type HeadroomSnapshot struct {
 }
 
 // resolvePrice looks up the price for a provider/model pair. It tries
-// "provider/model" first, then "provider", then returns a zero price.
+// dynamic PriceSource first, then "provider/model", then "provider",
+// then returns a zero price.
 func (m *Meter) resolvePrice(provider, model string) Price {
+	if m.priceSource != nil {
+		if p, ok := m.priceSource.GetPrice(provider, model); ok {
+			return p
+		}
+	}
 	// Try exact model match first.
 	if model != "" {
 		if p, ok := m.modelPrices[provider+"/"+model]; ok {
@@ -154,7 +169,7 @@ func (m *Meter) resolvePrice(provider, model string) Price {
 // requests cost nothing (the whole point of the cache). Cached read tokens
 // use the discounted CachedInputPerM rate; cache write tokens use the
 // (often higher) CacheWritePerM rate. Reasoning tokens use the ReasoningPerM
-// rate when set.
+// rate when set and are deducted from standard output tokens to avoid double-billing.
 func (m *Meter) CostMicros(provider, model string, u core.Usage, cacheHit bool) int64 {
 	if cacheHit {
 		return 0
@@ -167,17 +182,22 @@ func (m *Meter) CostMicros(provider, model string, u core.Usage, cacheHit bool) 
 		standardInput = 0
 	}
 
-	// Cost breakdown:
-	//   standard input     * InputPerM
-	// + cache-read input   * CachedInputPerM  (often 50-90% off InputPerM)
-	// + cache-write input  * CacheWritePerM   (often 25% above InputPerM)
-	// + reasoning tokens   * ReasoningPerM    (often same as OutputPerM)
-	// + completion tokens  * OutputPerM
+	// Standard output calculation with Anti Double-Billing:
+	standardOutput := u.CompletionTokens
+	var reasoningCost float64
+
+	if p.ReasoningPerM > 0 && u.ReasoningTokens > 0 {
+		standardOutput = u.CompletionTokens - u.ReasoningTokens
+		if standardOutput < 0 {
+			standardOutput = 0
+		}
+		reasoningCost = float64(u.ReasoningTokens) * p.ReasoningPerM
+	}
+
 	inputCost := float64(standardInput) * p.InputPerM
 	cachedReadCost := float64(u.CachedTokens) * p.CachedInputPerM
 	cacheWriteCost := float64(u.CacheWriteTokens) * p.CacheWritePerM
-	reasoningCost := float64(u.ReasoningTokens) * p.ReasoningPerM
-	outputCost := float64(u.CompletionTokens) * p.OutputPerM
+	outputCost := float64(standardOutput) * p.OutputPerM
 
 	return int64(inputCost + cachedReadCost + cacheWriteCost + reasoningCost + outputCost)
 }
