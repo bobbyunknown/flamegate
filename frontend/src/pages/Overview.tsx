@@ -55,34 +55,34 @@ export function OverviewPage() {
     <>
       {/* ── Plan alerts ──────────────────────────────────────────── */}
       {blocked.length > 0 && (
-        <div className="mb-6 flex items-center gap-3 border border-error-container/50 bg-error-container/10 px-4 py-3">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-error" />
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-on-surface">Plan limit reached. Requests blocked.</p>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-sm font-medium text-foreground">Plan limit reached. Requests blocked.</p>
+            <p className="text-xs text-muted-foreground">
               {blocked.map((b) => `${b.scope_name} (${microsToUSD(b.limit_micros)} ${b.period})`).join(", ")}
             </p>
           </div>
           <a
             href="/plans"
-            className="shrink-0 border border-error-container px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error-container"
+            className="shrink-0 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
           >
             Manage
           </a>
         </div>
       )}
       {warnings.length > 0 && blocked.length === 0 && (
-        <div className="mb-6 flex items-center gap-3 border border-warning/30 bg-warning/10 px-4 py-3">
-          <Wallet className="h-5 w-5 shrink-0 text-warning" />
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <Wallet className="h-5 w-5 shrink-0 text-amber-500" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-on-surface">Plan alert</p>
-            <p className="text-xs text-on-surface-variant">
+            <p className="text-sm font-medium text-foreground">Plan alert</p>
+            <p className="text-xs text-muted-foreground">
               {warnings.map((b) => `${b.scope_name}: ${b.pct_used.toFixed(0)}% used`).join(", ")}
             </p>
           </div>
           <a
             href="/plans"
-            className="shrink-0 border border-warning/30 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20"
+            className="shrink-0 rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/20"
           >
             Manage
           </a>
@@ -94,12 +94,12 @@ export function OverviewPage() {
         icon={Activity}
         description="Usage and performance across all providers."
         action={
-          <div className="flex items-center gap-2 border border-outline-variant bg-surface-container-high px-3 py-2">
-            <Calendar className="h-4 w-4 text-on-surface-variant" />
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
             <Select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="border-0 bg-transparent px-0 py-0 h-auto text-sm font-medium"
+              className="border-0 bg-transparent px-0 py-0 h-auto text-sm font-medium text-foreground"
             >
               {periods.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -122,51 +122,18 @@ export function OverviewPage() {
   );
 }
 
-// OverviewSkeleton mirrors the InsightsDashboard layout so the page shows its
-// shape while data loads, avoiding a blank spinner and layout shift on arrival.
 function OverviewSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="p-4">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="mt-3 h-8 w-20" />
-          </Card>
+          <Skeleton key={i} className="h-28" />
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 p-6">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="mt-4 h-48 w-full" />
-        </Card>
-        <Card className="p-6">
-          <Skeleton className="h-4 w-24" />
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-8 w-full" />
-            ))}
-          </div>
-        </Card>
-      </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="p-6">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="mt-4 h-10 w-32" />
-          <div className="mt-4 space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-4 w-full" />
-            ))}
-          </div>
-        </Card>
-        <Card className="lg:col-span-2 p-6">
-          <Skeleton className="h-4 w-32" />
-          <div className="mt-4 space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-6 w-full" />
-            ))}
-          </div>
-        </Card>
+      <Skeleton className="h-64" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Skeleton className="h-64" />
+        <Skeleton className="h-64" />
       </div>
     </div>
   );
@@ -175,77 +142,89 @@ function OverviewSkeleton() {
 function InsightsDashboard({ data }: { data: UsageInsights }) {
   const { summary, providers, recent, series } = data;
 
+  const totalTokens = summary.prompt_tokens + summary.completion_tokens;
+  const costUSD = summary.cost_usd;
+  const avgLatency = summary.avg_latency_ms;
+  const successRate = summary.success_rate;
+
   return (
     <div className="space-y-6">
-      {/* ── Key metrics ──────────────────────────────────────────── */}
-      <div className="stagger-in grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ── Metric cards ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          icon={Activity}
-          iconTone="accent"
-          label="Requests"
+          label="Total Requests"
           value={summary.total_requests.toLocaleString()}
+          icon={Activity}
         />
         <StatCard
+          label="Est. Cost"
+          value={`$${costUSD.toFixed(2)}`}
           icon={DollarSign}
-          iconTone="warning"
-          label="Cost"
-          value={`$${summary.cost_usd.toFixed(2)}`}
         />
         <StatCard
-          icon={CheckCircle2}
-          iconTone="accent"
-          label="Success rate"
-          value={`${(summary.success_rate * 100).toFixed(1)}%`}
+          label="Total Tokens"
+          value={compact(totalTokens)}
+          icon={Database}
         />
         <StatCard
+          label="Avg Latency"
+          value={avgLatency > 0 ? `${avgLatency}ms` : summary.total_requests > 0 ? "<1ms" : "—"}
           icon={Timer}
-          iconTone="accent"
-          label="Avg TTFT"
-          value={`${Math.round(summary.avg_ttft_ms)}ms`}
         />
       </div>
 
-      {/* ── Activity chart + Provider breakdown ──────────────────── */}
-      <div className="stagger-in grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 active-glow">
-          <SectionHeader
-            title="Request volume"
-            description="Requests over the selected period."
-            icon={TrendingUp}
-          />
-          <div className="px-6 pb-6">
-            <ActivityChart series={series} />
-          </div>
-        </Card>
+      {/* ── Secondary KPIs ───────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          label="Prompt Tokens"
+          value={compact(summary.prompt_tokens)}
+          icon={Zap}
+        />
+        <StatCard
+          label="Completion Tokens"
+          value={compact(summary.completion_tokens)}
+          icon={TrendingUp}
+        />
+        <StatCard
+          label="Success Rate"
+          value={successRate != null ? `${(successRate * 100).toFixed(1)}%` : summary.total_requests > 0 ? "—" : "100%"}
+          icon={CheckCircle2}
+        />
+        <StatCard
+          label="Cached Tokens"
+          value={compact(summary.cached_tokens)}
+          icon={Clock}
+        />
+      </div>
 
+      {/* ── Activity chart ───────────────────────────────────────── */}
+      <Card>
+        <SectionHeader
+          title="Activity over time"
+          description="Request volume in the selected time window."
+          icon={Activity}
+        />
+        <ActivityChart series={series} />
+      </Card>
+
+      {/* ── Breakdown grid ───────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <SectionHeader
-            title="Providers"
-            description="Usage by provider."
+            title="Provider distribution"
+            description="Share of total requests across providers."
             icon={Database}
           />
-          <div className="px-6 pb-6">
-            <ProviderBreakdown providers={providers} />
-          </div>
+          <ProviderBreakdown providers={providers} />
         </Card>
-      </div>
 
-      {/* ── Token stats + Recent activity ────────────────────────── */}
-      <div className="stagger-in grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card>
           <SectionHeader
             title="Token breakdown"
-            description="Input, output, and cached tokens."
+            description="Input vs. output tokens."
             icon={Zap}
           />
-          <div className="px-6 pb-6">
-            <TokenStats
-              prompt={summary.prompt_tokens}
-              completion={summary.completion_tokens}
-              cached={summary.cached_tokens}
-              cacheHits={summary.cache_hits}
-            />
-          </div>
+          <TokenBreakdown summary={summary} />
         </Card>
 
         <Card className="lg:col-span-2">
@@ -255,7 +234,7 @@ function InsightsDashboard({ data }: { data: UsageInsights }) {
             icon={Clock}
             action={
               recent.length > 0 ? (
-                <span className="text-xs text-on-surface-variant">
+                <span className="text-xs text-muted-foreground">
                   Last {recent.length} requests
                 </span>
               ) : undefined
@@ -273,7 +252,7 @@ function InsightsDashboard({ data }: { data: UsageInsights }) {
 function ActivityChart({ series }: { series: UsageInsights["series"] }) {
   if (series.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center text-sm text-on-surface-variant">
+      <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
         No activity recorded for this period.
       </div>
     );
@@ -296,30 +275,30 @@ function ActivityChart({ series }: { series: UsageInsights["series"] }) {
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 11, fill: "var(--color-on-surface-variant)" }}
+            tick={{ fontSize: 11, fill: "var(--color-ink-400)" }}
             interval="preserveStartEnd"
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 11, fill: "var(--color-on-surface-variant)" }}
+            tick={{ fontSize: 11, fill: "var(--color-ink-400)" }}
             width={36}
           />
           <Tooltip
-            cursor={{ fill: "var(--color-surface-container-high)" }}
+            cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
             contentStyle={{
-              background: "var(--color-surface-container)",
-              border: "1px solid var(--color-outline-variant)",
-              borderRadius: "0",
+              background: "var(--color-ink-900, #1c1b18)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
               fontSize: "12px",
               padding: "6px 10px",
-              color: "var(--color-on-surface)",
+              color: "var(--color-ink-50, #faf9f7)",
             }}
           />
           <Bar
             dataKey="count"
-            fill="var(--color-primary-container)"
-            radius={[0, 0, 0, 0]}
+            fill="var(--color-chart-1)"
+            radius={[4, 4, 0, 0]}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -332,7 +311,7 @@ function ActivityChart({ series }: { series: UsageInsights["series"] }) {
 function ProviderBreakdown({ providers }: { providers: ProviderUsage[] }) {
   if (providers.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-on-surface-variant">
+      <div className="py-8 text-center text-sm text-muted-foreground">
         No provider usage yet.
       </div>
     );
@@ -341,27 +320,29 @@ function ProviderBreakdown({ providers }: { providers: ProviderUsage[] }) {
   const maxRequests = Math.max(...providers.map((p) => p.total_requests));
 
   return (
-    <div className="divide-y divide-outline-variant/50">
+    <div className="divide-y divide-border">
       {providers.map((p) => (
         <div key={p.provider} className="py-3 first:pt-0 last:pb-0">
           <div className="flex items-center justify-between text-sm mb-2">
             <div className="flex items-center gap-2">
               <SmallProviderIcon p={p} />
-              <span className="font-medium text-on-surface">{p.display_name}</span>
+              <span className="font-medium text-foreground">{p.display_name}</span>
             </div>
-            <span className="font-mono text-xs tabular-nums text-on-surface">
+            <span className="font-mono text-xs tabular-nums text-foreground">
               {p.total_requests.toLocaleString()} req
             </span>
           </div>
-          <div className="h-1 bg-surface-container-high relative overflow-hidden">
+          <div className="h-1.5 bg-muted rounded-full relative overflow-hidden">
             <div
-              className="absolute inset-y-0 left-0 bg-primary-container transition-all duration-500"
-              style={{ width: `${maxRequests > 0 ? (p.total_requests / maxRequests) * 100 : 0}%`, boxShadow: "0 0 6px rgba(255, 85, 64, 0.45)" }}
+              className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-500"
+              style={{ width: `${maxRequests > 0 ? (p.total_requests / maxRequests) * 100 : 0}%`, backgroundColor: p.color || "var(--color-chart-1)" }}
             />
           </div>
-          <div className="flex items-center justify-between text-xs text-on-surface-variant mt-2 font-mono">
-            <span>{compact(p.prompt_tokens + p.completion_tokens)} tks</span>
-            <span>${p.cost_usd.toFixed(4)}</span>
+          <div className="flex items-center justify-between text-xs text-muted-foreground mt-2 font-mono">
+            <span>
+              {((p.total_requests / (maxRequests || 1)) * 100).toFixed(0)}% of max
+            </span>
+            <span>${p.cost_usd.toFixed(2)}</span>
           </div>
         </div>
       ))}
@@ -369,54 +350,47 @@ function ProviderBreakdown({ providers }: { providers: ProviderUsage[] }) {
   );
 }
 
-/* ── Token stats (no chart, just clean numbers) ──────────────────── */
+/* ── Token breakdown ─────────────────────────────────────────────── */
 
-function TokenStats({
-  prompt,
-  completion,
-  cached,
-  cacheHits,
-}: {
-  prompt: number;
-  completion: number;
-  cached: number;
-  cacheHits: number;
-}) {
-  const nonCachedInput = Math.max(prompt - cached, 0);
+function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
+  const prompt = summary.prompt_tokens;
+  const completion = summary.completion_tokens;
+  const cached = summary.cached_tokens;
   const total = prompt + completion;
+  const cacheHits = summary.cache_hits;
 
   if (total === 0) {
     return (
-      <div className="py-8 text-center text-sm text-on-surface-variant">
-        No token usage recorded yet.
+      <div className="py-8 text-center text-sm text-muted-foreground">
+        No token data recorded yet.
       </div>
     );
   }
 
   const rows = [
-    { label: "Input", value: nonCachedInput },
-    { label: "Output", value: completion },
-    { label: "Cached", value: cached },
+    { label: "Prompt tokens", value: prompt },
+    { label: "Completion tokens", value: completion },
+    { label: "Cached tokens", value: cached },
   ];
 
   return (
     <div className="flex flex-col h-full">
-      <div className="pb-6 mb-6 border-b border-outline-variant">
+      <div className="pb-6 mb-6 border-b border-border">
         <div className="flex items-baseline gap-2">
-          <span className="font-display text-4xl font-semibold tracking-tight text-on-surface">{compact(total)}</span>
-          <span className="text-xs uppercase tracking-wider text-on-surface-variant">tokens</span>
+          <span className="font-display text-4xl font-semibold tracking-tight text-foreground">{compact(total)}</span>
+          <span className="text-xs uppercase tracking-wider text-muted-foreground">tokens</span>
         </div>
       </div>
 
       <div className="space-y-4 flex-1">
         {rows.map((row) => (
           <div key={row.label} className="flex items-center justify-between">
-            <span className="text-sm text-on-surface-variant">{row.label}</span>
+            <span className="text-sm text-muted-foreground">{row.label}</span>
             <div className="flex items-center gap-4">
-              <span className="text-sm font-mono tabular-nums text-on-surface">
+              <span className="text-sm font-mono tabular-nums text-foreground">
                 {row.value.toLocaleString()}
               </span>
-              <span className="w-10 text-right text-xs font-mono text-on-surface-variant">
+              <span className="w-10 text-right text-xs font-mono text-muted-foreground">
                 {total > 0 ? `${((row.value / total) * 100).toFixed(0)}%` : "0%"}
               </span>
             </div>
@@ -424,10 +398,10 @@ function TokenStats({
         ))}
       </div>
 
-      <div className="pt-4 mt-6 border-t border-outline-variant">
+      <div className="pt-4 mt-6 border-t border-border">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-on-surface-variant">Cache hits</span>
-          <span className="text-sm font-mono tabular-nums text-on-surface">{cacheHits.toLocaleString()}</span>
+          <span className="text-sm text-muted-foreground">Cache hits</span>
+          <span className="text-sm font-mono tabular-nums text-foreground">{cacheHits.toLocaleString()}</span>
         </div>
       </div>
     </div>
@@ -439,7 +413,7 @@ function TokenStats({
 function RecentActivityTable({ recent, providers }: { recent: RecentActivity[], providers: ProviderUsage[] }) {
   if (recent.length === 0) {
     return (
-      <div className="px-6 py-10 text-center text-sm text-on-surface-variant">
+      <div className="px-6 py-10 text-center text-sm text-muted-foreground">
         No recent activity. Make a request through the proxy to see it here.
       </div>
     );
@@ -449,7 +423,7 @@ function RecentActivityTable({ recent, providers }: { recent: RecentActivity[], 
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-outline-variant text-left text-xs uppercase tracking-wider text-on-surface-variant">
+          <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
             <th className="px-6 py-3 font-medium">Model</th>
             <th className="px-4 py-3 font-medium">Provider</th>
             <th className="px-4 py-3 text-right font-medium">Tokens</th>
@@ -458,34 +432,34 @@ function RecentActivityTable({ recent, providers }: { recent: RecentActivity[], 
             <th className="px-6 py-3 text-right font-medium">Cache</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-outline-variant/50">
+        <tbody className="divide-y divide-border">
           {recent.map((row) => (
             <tr
               key={row.id}
-              className="group hover:bg-surface-container-high/50 transition-colors"
+              className="group hover:bg-muted/40 transition-colors"
             >
               <td className="px-6 py-3">
-                <span className="font-mono text-xs text-on-surface">{row.model}</span>
+                <span className="font-mono text-xs text-foreground">{row.model}</span>
               </td>
-              <td className="px-4 py-3 text-xs text-on-surface-variant">
+              <td className="px-4 py-3 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <SmallProviderIcon p={providers.find((p) => p.provider === row.provider)} />
                   {row.provider}
                 </div>
               </td>
-              <td className="px-4 py-3 text-right font-mono text-xs text-on-surface">
+              <td className="px-4 py-3 text-right font-mono text-xs text-foreground">
                 {row.tokens.toLocaleString()}
               </td>
-              <td className="px-4 py-3 text-right font-mono text-xs text-on-surface-variant">
+              <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">
                 ${row.cost_usd.toFixed(4)}
               </td>
-              <td className="px-4 py-3 text-right font-mono text-xs text-on-surface-variant">
+              <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">
                 {row.latency_ms}ms
               </td>
               <td className="px-6 py-3 text-right">
                 {row.cache_hit ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-success font-medium">
-                    <span className="h-1.5 w-1.5 bg-current" />
+                  <span className="inline-flex items-center gap-1.5 text-xs text-emerald-500 font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     Hit
                   </span>
                 ) : null}
@@ -508,12 +482,12 @@ function compact(n: number): string {
 
 function SmallProviderIcon({ p }: { p?: { display_name: string; icon: string; color: string } }) {
   const [errored, setErrored] = useState(false);
-  if (!p) return <div className="h-4 w-4 shrink-0 bg-outline-variant" />;
+  if (!p) return <div className="h-4 w-4 shrink-0 bg-muted" />;
   if (errored || !p.icon) {
     return (
       <div
-        className="flex h-4 w-4 shrink-0 items-center justify-center text-[8px] font-bold text-white"
-        style={{ backgroundColor: p.color || "var(--color-on-surface-variant)" }}
+        className="flex h-4 w-4 shrink-0 items-center justify-center text-[8px] font-bold text-white rounded"
+        style={{ backgroundColor: p.color || "var(--color-ink-400)" }}
       >
         {p.display_name.slice(0, 1).toUpperCase()}
       </div>
@@ -524,7 +498,7 @@ function SmallProviderIcon({ p }: { p?: { display_name: string; icon: string; co
       src={p.icon}
       alt={p.display_name}
       onError={() => setErrored(true)}
-      className="h-4 w-4 shrink-0 object-contain"
+      className="h-4 w-4 shrink-0 object-contain rounded"
     />
   );
 }
