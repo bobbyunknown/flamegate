@@ -265,13 +265,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set Docker Images
+        id: docker_images
+        run: |
+          IMAGES="ghcr.io/${{ github.repository }}"
+          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            IMAGES="${IMAGES}"$'\n'"${{ secrets.DOCKERHUB_USERNAME }}/flamegate"
+          fi
+          echo "images<<EOF" >> $GITHUB_OUTPUT
+          echo "${IMAGES}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        shell: bash
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ghcr.io/${{ github.repository }}
-            ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/flamegate', secrets.DOCKERHUB_USERNAME) || '' }}
+          images: ${{ steps.docker_images.outputs.images }}
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=branch
