@@ -4,7 +4,7 @@ FROM oven/bun:1-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 COPY frontend/package.json frontend/bun.lock* ./
-RUN bun install
+RUN bun install --ignore-scripts
 
 COPY frontend/ ./
 RUN bun run build
