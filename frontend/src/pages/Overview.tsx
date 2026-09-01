@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -12,12 +12,21 @@ import {
   TrendingUp,
   AlertTriangle,
   Wallet,
+  Sparkles,
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 import { api, type UsageInsights, type RecentActivity, type ProviderUsage } from "../lib/api";
 import { microsToUSD } from "../lib/format";
 import { PageHeader } from "@/components/composite/page-header";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { SectionHeader } from "@/components/composite/section-header";
 import { StatCard } from "@/components/composite/stat-card";
 import { ErrorCard } from "@/components/composite/error-card";
@@ -92,17 +101,17 @@ export function OverviewPage() {
       <PageHeader
         title="Overview"
         icon={Activity}
-        description="Usage and performance across all providers."
+        description="Usage, routing metrics, and performance across all AI providers."
         action={
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-xl border border-border/80 bg-card/80 px-3 py-1.5 shadow-sm backdrop-blur-sm">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <Select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="border-0 bg-transparent px-0 py-0 h-auto text-sm font-medium text-foreground"
+              className="border-0 bg-transparent px-0 py-0 h-auto text-sm font-medium text-foreground focus:ring-0"
             >
               {periods.map((p) => (
-                <option key={p.value} value={p.value}>
+                <option key={p.value} value={p.value} className="bg-popover text-foreground">
                   {p.label}
                 </option>
               ))}
@@ -127,13 +136,13 @@ function OverviewSkeleton() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-28" />
+          <Skeleton key={i} className="h-28 rounded-xl" />
         ))}
       </div>
-      <Skeleton className="h-64" />
+      <Skeleton className="h-72 rounded-xl" />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Skeleton className="h-64" />
-        <Skeleton className="h-64" />
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     </div>
   );
@@ -155,21 +164,25 @@ function InsightsDashboard({ data }: { data: UsageInsights }) {
           label="Total Requests"
           value={summary.total_requests.toLocaleString()}
           icon={Activity}
+          iconTone="accent"
         />
         <StatCard
           label="Est. Cost"
           value={`$${costUSD.toFixed(2)}`}
           icon={DollarSign}
+          iconTone="warning"
         />
         <StatCard
           label="Total Tokens"
           value={compact(totalTokens)}
           icon={Database}
+          iconTone="accent"
         />
         <StatCard
           label="Avg Latency"
           value={avgLatency > 0 ? `${avgLatency}ms` : summary.total_requests > 0 ? "<1ms" : "—"}
           icon={Timer}
+          iconTone="neutral"
         />
       </div>
 
@@ -179,62 +192,76 @@ function InsightsDashboard({ data }: { data: UsageInsights }) {
           label="Prompt Tokens"
           value={compact(summary.prompt_tokens)}
           icon={Zap}
+          iconTone="accent"
         />
         <StatCard
           label="Completion Tokens"
           value={compact(summary.completion_tokens)}
           icon={TrendingUp}
+          iconTone="accent"
         />
         <StatCard
           label="Success Rate"
-          value={successRate != null ? `${(successRate * 100).toFixed(1)}%` : summary.total_requests > 0 ? "—" : "100%"}
+          value={successRate != null ? `${(successRate * 100).toFixed(1)}%` : summary.total_requests > 0 ? "100%" : "100%"}
           icon={CheckCircle2}
+          iconTone="accent"
         />
         <StatCard
           label="Cached Tokens"
           value={compact(summary.cached_tokens)}
           icon={Clock}
+          iconTone="neutral"
         />
       </div>
 
       {/* ── Activity chart ───────────────────────────────────────── */}
-      <Card>
+      <Card className="border-border/80 bg-card/80 backdrop-blur-sm shadow-sm">
         <SectionHeader
           title="Activity over time"
           description="Request volume in the selected time window."
           icon={Activity}
+          iconTone="accent"
         />
-        <ActivityChart series={series} />
+        <CardContent className="px-6 pb-6 pt-0">
+          <ActivityChart series={series} />
+        </CardContent>
       </Card>
 
       {/* ── Breakdown grid ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
+        <Card className="border-border/80 bg-card/80 backdrop-blur-sm shadow-sm">
           <SectionHeader
             title="Provider distribution"
             description="Share of total requests across providers."
             icon={Database}
+            iconTone="accent"
           />
-          <ProviderBreakdown providers={providers} />
+          <CardContent className="px-6 pb-6 pt-0">
+            <ProviderBreakdown providers={providers} totalRequests={summary.total_requests} />
+          </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/80 bg-card/80 backdrop-blur-sm shadow-sm">
           <SectionHeader
             title="Token breakdown"
-            description="Input vs. output tokens."
+            description="Input vs. output and cache efficiency."
             icon={Zap}
+            iconTone="accent"
           />
-          <TokenBreakdown summary={summary} />
+          <CardContent className="px-6 pb-6 pt-0">
+            <TokenBreakdown summary={summary} />
+          </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 border-border/80 bg-card/80 backdrop-blur-sm shadow-sm">
           <SectionHeader
             title="Recent activity"
-            description="Latest requests through the proxy."
+            description="Latest requests processed through the gateway."
             icon={Clock}
+            iconTone="neutral"
             action={
               recent.length > 0 ? (
-                <span className="text-xs text-muted-foreground">
+                <span className="inline-flex items-center rounded-md border border-border bg-muted/60 px-2 py-1 text-xs font-medium text-muted-foreground">
                   Last {recent.length} requests
                 </span>
               ) : undefined
@@ -247,60 +274,86 @@ function InsightsDashboard({ data }: { data: UsageInsights }) {
   );
 }
 
-/* ── Activity sparkline chart ────────────────────────────────────── */
+/* ── Custom Chart Tooltip ────────────────────────────────────────── */
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number; payload: { label: string; count: number } }>;
+  label?: string;
+}
+
+function CustomChartTooltip({ active, payload, label }: TooltipProps) {
+  if (!active || !payload || !payload.length) return null;
+  const count = payload[0].value ?? 0;
+
+  return (
+    <div className="rounded-lg border border-border/80 bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
+      <div className="font-medium text-muted-foreground mb-1">{label}</div>
+      <div className="flex items-center gap-2">
+        <span className="size-2 rounded-full bg-primary animate-pulse" />
+        <span className="text-foreground font-semibold tabular-nums">
+          {count.toLocaleString()} {count === 1 ? "request" : "requests"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Activity sparkline / area chart ─────────────────────────────── */
 
 function ActivityChart({ series }: { series: UsageInsights["series"] }) {
-  if (series.length === 0) {
+  if (!series || series.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+      <div className="flex h-52 items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground">
         No activity recorded for this period.
       </div>
     );
   }
 
+  // Format label ticks to avoid cramped timestamps
+  const formattedSeries = useMemo(() => {
+    return series.map((item) => ({
+      ...item,
+      displayLabel: item.label,
+    }));
+  }, [series]);
+
   return (
-    <div className="activity-chart relative h-48">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.05]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, #333 1px, transparent 1px), linear-gradient(to bottom, #333 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }}
-      />
+    <div className="relative h-56 w-full pt-2">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={series} barCategoryGap="20%">
+        <AreaChart data={formattedSeries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <defs>
+            <linearGradient id="flameAreaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#ff5540" stopOpacity={0.35} />
+              <stop offset="95%" stopColor="#ff5540" stopOpacity={0.0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.35} />
           <XAxis
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 11, fill: "var(--color-ink-400)" }}
+            tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
             interval="preserveStartEnd"
+            minTickGap={30}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 11, fill: "var(--color-ink-400)" }}
-            width={36}
+            tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+            allowDecimals={false}
           />
-          <Tooltip
-            cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
-            contentStyle={{
-              background: "var(--color-ink-900, #1c1b18)",
-              border: "1px solid var(--border)",
-              borderRadius: "8px",
-              fontSize: "12px",
-              padding: "6px 10px",
-              color: "var(--color-ink-50, #faf9f7)",
-            }}
-          />
-          <Bar
+          <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: "var(--color-primary)", strokeWidth: 1, strokeDasharray: "4 4" }} />
+          <Area
+            type="monotone"
             dataKey="count"
-            fill="var(--color-chart-1)"
-            radius={[4, 4, 0, 0]}
+            stroke="#ff5540"
+            strokeWidth={2.5}
+            fillOpacity={1}
+            fill="url(#flameAreaGradient)"
+            activeDot={{ r: 5, fill: "#ff5540", stroke: "#ffffff", strokeWidth: 2 }}
           />
-        </BarChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
@@ -308,44 +361,81 @@ function ActivityChart({ series }: { series: UsageInsights["series"] }) {
 
 /* ── Provider breakdown ──────────────────────────────────────────── */
 
-function ProviderBreakdown({ providers }: { providers: ProviderUsage[] }) {
-  if (providers.length === 0) {
+const PROVIDER_COLORS: Record<string, string> = {
+  antigravity: "#3b82f6",
+  google: "#4285F4",
+  cline: "#8b5cf6",
+  openai: "#10a37f",
+  anthropic: "#d97706",
+  mimo: "#f97316",
+  xiaomi: "#f97316",
+  deepseek: "#0ea5e9",
+};
+
+function getProviderColor(providerSlug: string, customColor?: string): string {
+  if (customColor && customColor.startsWith("#")) return customColor;
+  const lower = providerSlug.toLowerCase();
+  for (const [key, color] of Object.entries(PROVIDER_COLORS)) {
+    if (lower.includes(key)) return color;
+  }
+  return "#ff5540";
+}
+
+function ProviderBreakdown({
+  providers,
+  totalRequests,
+}: {
+  providers: ProviderUsage[];
+  totalRequests: number;
+}) {
+  if (!providers || providers.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        No provider usage yet.
+      <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground">
+        No provider usage recorded yet.
       </div>
     );
   }
 
-  const maxRequests = Math.max(...providers.map((p) => p.total_requests));
+  const calculatedTotal = totalRequests > 0 ? totalRequests : providers.reduce((sum, p) => sum + p.total_requests, 0);
 
   return (
-    <div className="divide-y divide-border">
-      {providers.map((p) => (
-        <div key={p.provider} className="py-3 first:pt-0 last:pb-0">
-          <div className="flex items-center justify-between text-sm mb-2">
-            <div className="flex items-center gap-2">
-              <SmallProviderIcon p={p} />
-              <span className="font-medium text-foreground">{p.display_name}</span>
+    <div className="space-y-4 pt-1">
+      {providers.map((p) => {
+        const color = getProviderColor(p.provider, p.color);
+        const percent = calculatedTotal > 0 ? (p.total_requests / calculatedTotal) * 100 : 0;
+
+        return (
+          <div key={p.provider} className="group rounded-lg border border-border/50 bg-muted/20 p-3 hover:bg-muted/40 transition-colors">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <div className="flex items-center gap-2.5">
+                <SmallProviderIcon p={p} />
+                <span className="font-semibold text-foreground">{p.display_name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-md border border-border bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground">
+                  {p.total_requests.toLocaleString()} req
+                </span>
+              </div>
             </div>
-            <span className="font-mono text-xs tabular-nums text-foreground">
-              {p.total_requests.toLocaleString()} req
-            </span>
+
+            {/* Modern sleek progress track */}
+            <div className="h-2 w-full bg-muted/80 rounded-full relative overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500 shadow-sm"
+                style={{
+                  width: `${Math.max(percent, 2)}%`,
+                  backgroundColor: color,
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
+              <span className="font-medium">{percent.toFixed(1)}% of total traffic</span>
+              <span className="font-semibold tabular-nums text-foreground/90">${p.cost_usd.toFixed(4)}</span>
+            </div>
           </div>
-          <div className="h-1.5 bg-muted rounded-full relative overflow-hidden">
-            <div
-              className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${maxRequests > 0 ? (p.total_requests / maxRequests) * 100 : 0}%`, backgroundColor: p.color || "var(--color-chart-1)" }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground mt-2 font-mono">
-            <span>
-              {((p.total_requests / (maxRequests || 1)) * 100).toFixed(0)}% of max
-            </span>
-            <span>${p.cost_usd.toFixed(2)}</span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -359,49 +449,83 @@ function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
   const total = prompt + completion;
   const cacheHits = summary.cache_hits;
 
-  if (total === 0) {
+  if (total === 0 && cached === 0) {
     return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
+      <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground">
+        <Sparkles className="size-6 text-muted-foreground/40 mb-2" />
         No token data recorded yet.
       </div>
     );
   }
 
-  const rows = [
-    { label: "Prompt tokens", value: prompt },
-    { label: "Completion tokens", value: completion },
-    { label: "Cached tokens", value: cached },
-  ];
+  const promptPct = total > 0 ? (prompt / total) * 100 : 0;
+  const completionPct = total > 0 ? (completion / total) * 100 : 0;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="pb-6 mb-6 border-b border-border">
-        <div className="flex items-baseline gap-2">
-          <span className="font-display text-4xl font-semibold tracking-tight text-foreground">{compact(total)}</span>
-          <span className="text-xs uppercase tracking-wider text-muted-foreground">tokens</span>
+    <div className="flex flex-col justify-between h-full space-y-4 pt-1">
+      {/* Top Total Header */}
+      <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Total Processed</p>
+            <p className="text-3xl font-bold tracking-tight text-foreground tabular-nums mt-0.5">{compact(total)}</p>
+          </div>
+          <div className="text-right">
+            <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400">
+              <Clock className="size-3" />
+              {cacheHits.toLocaleString()} Cache Hits
+            </span>
+          </div>
+        </div>
+
+        {/* Visual segmented bar */}
+        <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted/80">
+          <div
+            className="h-full bg-primary transition-all duration-500"
+            style={{ width: `${promptPct}%` }}
+            title={`Prompt: ${promptPct.toFixed(1)}%`}
+          />
+          <div
+            className="h-full bg-amber-400 transition-all duration-500"
+            style={{ width: `${completionPct}%` }}
+            title={`Completion: ${completionPct.toFixed(1)}%`}
+          />
         </div>
       </div>
 
-      <div className="space-y-4 flex-1">
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{row.label}</span>
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-mono tabular-nums text-foreground">
-                {row.value.toLocaleString()}
-              </span>
-              <span className="w-10 text-right text-xs font-mono text-muted-foreground">
-                {total > 0 ? `${((row.value / total) * 100).toFixed(0)}%` : "0%"}
-              </span>
-            </div>
+      {/* Rows breakdown */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between rounded-lg border border-border/40 bg-card/40 p-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="size-2.5 rounded-full bg-primary" />
+            <span className="text-muted-foreground font-medium">Prompt tokens</span>
           </div>
-        ))}
-      </div>
+          <div className="flex items-center gap-2 font-semibold text-foreground tabular-nums">
+            <span>{prompt.toLocaleString()}</span>
+            <span className="text-muted-foreground font-normal">({promptPct.toFixed(0)}%)</span>
+          </div>
+        </div>
 
-      <div className="pt-4 mt-6 border-t border-border">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Cache hits</span>
-          <span className="text-sm font-mono tabular-nums text-foreground">{cacheHits.toLocaleString()}</span>
+        <div className="flex items-center justify-between rounded-lg border border-border/40 bg-card/40 p-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="size-2.5 rounded-full bg-amber-400" />
+            <span className="text-muted-foreground font-medium">Completion tokens</span>
+          </div>
+          <div className="flex items-center gap-2 font-semibold text-foreground tabular-nums">
+            <span>{completion.toLocaleString()}</span>
+            <span className="text-muted-foreground font-normal">({completionPct.toFixed(0)}%)</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border border-border/40 bg-card/40 p-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="size-2.5 rounded-full bg-sky-400" />
+            <span className="text-muted-foreground font-medium">Cached tokens</span>
+          </div>
+          <div className="flex items-center gap-2 font-semibold text-foreground tabular-nums">
+            <span>{cached.toLocaleString()}</span>
+            <span className="text-emerald-400 font-medium">Saved</span>
+          </div>
         </div>
       </div>
     </div>
@@ -410,11 +534,17 @@ function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
 
 /* ── Recent activity table ───────────────────────────────────────── */
 
-function RecentActivityTable({ recent, providers }: { recent: RecentActivity[], providers: ProviderUsage[] }) {
-  if (recent.length === 0) {
+function RecentActivityTable({
+  recent,
+  providers,
+}: {
+  recent: RecentActivity[];
+  providers: ProviderUsage[];
+}) {
+  if (!recent || recent.length === 0) {
     return (
-      <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-        No recent activity. Make a request through the proxy to see it here.
+      <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+        No recent activity. Send a request through the proxy to see live metrics here.
       </div>
     );
   }
@@ -423,46 +553,47 @@ function RecentActivityTable({ recent, providers }: { recent: RecentActivity[], 
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <th className="px-6 py-3 font-medium">Model</th>
-            <th className="px-4 py-3 font-medium">Provider</th>
-            <th className="px-4 py-3 text-right font-medium">Tokens</th>
-            <th className="px-4 py-3 text-right font-medium">Cost</th>
-            <th className="px-4 py-3 text-right font-medium">Latency</th>
-            <th className="px-6 py-3 text-right font-medium">Cache</th>
+          <tr className="border-b border-border/80 text-left text-xs uppercase tracking-wider text-muted-foreground bg-muted/20">
+            <th className="px-6 py-3 font-semibold">Model</th>
+            <th className="px-4 py-3 font-semibold">Provider</th>
+            <th className="px-4 py-3 text-right font-semibold">Tokens</th>
+            <th className="px-4 py-3 text-right font-semibold">Cost</th>
+            <th className="px-4 py-3 text-right font-semibold">Latency</th>
+            <th className="px-6 py-3 text-right font-semibold">Status</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-border/60">
           {recent.map((row) => (
-            <tr
-              key={row.id}
-              className="group hover:bg-muted/40 transition-colors"
-            >
+            <tr key={row.id} className="group hover:bg-muted/30 transition-colors">
               <td className="px-6 py-3">
-                <span className="font-mono text-xs text-foreground">{row.model}</span>
+                <span className="font-mono text-xs font-semibold text-foreground">{row.model}</span>
               </td>
               <td className="px-4 py-3 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <SmallProviderIcon p={providers.find((p) => p.provider === row.provider)} />
-                  {row.provider}
+                  <span className="font-medium text-foreground/90 capitalize">{row.provider}</span>
                 </div>
               </td>
-              <td className="px-4 py-3 text-right font-mono text-xs text-foreground">
+              <td className="px-4 py-3 text-right font-mono text-xs text-foreground tabular-nums font-medium">
                 {row.tokens.toLocaleString()}
               </td>
-              <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">
+              <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground tabular-nums">
                 ${row.cost_usd.toFixed(4)}
               </td>
-              <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">
+              <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground tabular-nums">
                 {row.latency_ms}ms
               </td>
               <td className="px-6 py-3 text-right">
                 {row.cache_hit ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-emerald-500 font-medium">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Hit
+                  <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400">
+                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Cache Hit
                   </span>
-                ) : null}
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-md border border-border/80 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                    Direct
+                  </span>
+                )}
               </td>
             </tr>
           ))}
@@ -482,12 +613,12 @@ function compact(n: number): string {
 
 function SmallProviderIcon({ p }: { p?: { display_name: string; icon: string; color: string } }) {
   const [errored, setErrored] = useState(false);
-  if (!p) return <div className="h-4 w-4 shrink-0 bg-muted" />;
+  if (!p) return <div className="size-4 shrink-0 rounded bg-muted" />;
   if (errored || !p.icon) {
     return (
       <div
-        className="flex h-4 w-4 shrink-0 items-center justify-center text-[8px] font-bold text-white rounded"
-        style={{ backgroundColor: p.color || "var(--color-ink-400)" }}
+        className="flex size-4 shrink-0 items-center justify-center rounded text-[8px] font-bold text-white shadow-xs"
+        style={{ backgroundColor: p.color || "#ff5540" }}
       >
         {p.display_name.slice(0, 1).toUpperCase()}
       </div>
@@ -498,7 +629,7 @@ function SmallProviderIcon({ p }: { p?: { display_name: string; icon: string; co
       src={p.icon}
       alt={p.display_name}
       onError={() => setErrored(true)}
-      className="h-4 w-4 shrink-0 object-contain rounded"
+      className="size-4 shrink-0 object-contain rounded"
     />
   );
 }

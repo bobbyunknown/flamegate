@@ -91,12 +91,12 @@
   --color-danger: #a84844;
   --color-info: #5b8fa8;
 
-  /* ── Chart / data visualization palette. */
-  --color-chart-1: #4a7a6f;
-  --color-chart-2: #8fb5a8;
-  --color-chart-3: #b08a3e;
-  --color-chart-4: #a84844;
-  --color-chart-5: #6a7450;
+  /* ── Chart / data visualization palette (FlameGate Ember). */
+  --color-chart-1: #ff5540;
+  --color-chart-2: #f97316;
+  --color-chart-3: #fbbf24;
+  --color-chart-4: #38bdf8;
+  --color-chart-5: #a855f7;
 
   /* ── Brand colors for CLI tools / providers. */
   --color-brand-claude: #d97706;
