@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -64,7 +65,11 @@ func run(args []string) error {
 			printUsage(os.Stdout)
 			return nil
 		case "version", "-v", "--version", "-version":
-			fmt.Printf("FlameGate v%s (%s)\n", version.Resolve(Version), Commit)
+			v := version.Resolve(Version)
+			if !strings.HasPrefix(v, "v") && v != "dev" {
+				v = "v" + v
+			}
+			fmt.Printf("FlameGate %s (%s)\n", v, Commit)
 			return nil
 		case "status":
 			return cmdStatus(args[1:])

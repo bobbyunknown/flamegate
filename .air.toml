@@ -8,15 +8,18 @@ tmp_dir = "tmp"
 [build]
   args_bin =[]
   bin = "./tmp/main"
-  cmd = "go build -ldflags \"-X main.Version=v$(tr -d '\n' < internal/shared/version/VERSION)\" -o ./tmp/main ./cmd/flamegate"
+  cmd = "go build -o ./tmp/main ./cmd/flamegate"
   delay = 1000
   entrypoint = ["./tmp/main", "-c", "flamegate.toml"]
   exclude_dir = [
     "assets",
+    "bin",
     "tmp",
     "vendor",
     "testdata",
     "frontend",
+    "flamegate-ext",
+    "npm",
     "skills",
     "spec",
     "scripts",
