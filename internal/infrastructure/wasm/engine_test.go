@@ -268,11 +268,13 @@ func TestEngine_GetConfig(t *testing.T) {
 }
 
 func TestEngine_ListModels_Cline(t *testing.T) {
+	wasmBytes, err := os.ReadFile("../../../flamegate-ext/cline/dist/cline.wasm")
+	if err != nil {
+		t.Skip("skipping wasm test: cline.wasm not found")
+	}
+
 	e := newEngineForTest(t)
 	defer e.Close()
-
-	wasmBytes, err := os.ReadFile("../../../flamegate-ext/cline/dist/cline.wasm")
-	require.NoError(t, err)
 
 	cfg := ExtensionConfig{
 		Slug:        "cline",
