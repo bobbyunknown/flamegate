@@ -1,24 +1,24 @@
 # FlameGate
 
-**FlameGate** is a self-hostable LLM proxy and router. It accepts requests in multiple client dialects (OpenAI, Anthropic, Gemini, plus embeddings, image, audio, search and web-fetch endpoints), applies token-saving transforms and content guardrails, routes each request to the best available provider account, and meters usage against budget limits.
+**FlameGate** is a self-hostable LLM proxy, intelligent router, and WebAssembly extension runtime. It accepts requests in multiple client dialects (OpenAI, Anthropic, Gemini, plus embeddings, images, audio, web search, and web fetch), applies token-saving transforms and content guardrails, routes each request to the best available provider account, and meters usage against strict budget limits.
 
-You get one OpenAI-compatible entry point for all your models, with failover, caching, and a real-time dashboard — without locking your clients to a single vendor.
+You get a single, robust API gateway for all your AI workloads with automatic failover, semantic caching, and a real-time dashboard — without locking your tools or code to a single vendor.
 
 ---
 
 ## Features
 
-- **Multi-dialect gateway** — one `/v1` API that speaks OpenAI, Anthropic (`/v1/messages`), and Gemini (`/v1beta/models`) dialects, plus embeddings, image generation, speech/transcription, web search, and web fetch.
-- **Smart routing & failover** — account selection with round-robin/fill-first strategies, automatic rate-limit cooldowns, and continuous background health probes that route around degraded accounts and models.
-- **Token optimization** — context slimming and dynamic headroom controls cut upstream prompt tokens and bandwidth cost before requests leave the gateway.
-- **Semantic response cache** — repeated or near-identical prompts are served from cache for zero upstream cost, with hash-based exact-match or optional embedding-based near-match modes.
-- **Content guardrails** — in-flight inspection for PII, toxicity, prompt-injection, bias, and topic filtering. Native engines by default, with optional external engines (Presidio, OpenAI Moderation).
-- **WASM extension architecture** — install new provider connectors as WebAssembly modules without rebuilding the binary. Extensions run in a sandboxed `wazero` runtime and hot-reload on file change. See [`flamegate-ext`](https://github.com/bobbyunknown/flamegate-ext).
-- **Metering & budgeting** — buffered usage tracking, per-plan allocation, and hard spend limits per API key.
-- **Per-key rate limiting** — RPM/TPM/concurrency quotas with an in-process memory backend.
-- **Management dashboard** — built-in React dashboard (Vite, Tailwind, shadcn/ui) with real-time request metrics, key management, system health, and provider routing.
-- **Zero-config tunnels** — built-in Cloudflare and Tailscale tunnel support for secure remote deployment.
-- **Scalar API docs** — interactive OpenAPI documentation served by the admin API.
+- **Multi-dialect gateway** — One unified `/v1` API that speaks OpenAI, Anthropic (`/v1/messages`), and Gemini (`/v1beta/models`) dialects, plus embeddings, image generation, speech/transcription, web search, and web fetch.
+- **Smart routing & failover** — Account selection with round-robin or fill-first strategies, automatic rate-limit cooldowns, and continuous background health probes that route around degraded accounts and models.
+- **Token optimization** — Context slimming and dynamic headroom cut prompt tokens and payload size before requests leave the gateway.
+- **Semantic response cache** — Repeated or near-identical prompts are served from memory/cache for zero upstream cost, supporting exact hash and embedding-based similarity modes.
+- **Content guardrails** — In-flight inspection for PII, toxicity, prompt-injection, bias, and banned topics with native and pluggable detectors.
+- **WASM extension runtime** — Install and update provider connectors as WebAssembly modules (`wazero` runtime) without rebuilding the core binary. Extensions hot-reload on file change.
+- **Metering & budgeting** — High-throughput buffered usage tracking, per-plan token allocation, and hard spend limits per API key.
+- **Per-key rate limiting** — In-memory RPM/TPM and concurrency quotas per key or tier.
+- **Built-in dashboard** — React dashboard (Vite, Tailwind, shadcn/ui) with real-time request metrics, key management, system health, and routing policies.
+- **Zero-config tunnels** — Built-in Cloudflare and Tailscale tunnel integration for secure remote deployment.
+- **Interactive API docs** — Embedded Scalar OpenAPI documentation served by the admin API.
 
 ---
 
@@ -26,157 +26,259 @@ You get one OpenAI-compatible entry point for all your models, with failover, ca
 
 ```mermaid
 flowchart TD
-    Client["LLM Clients<br/>OpenAI · Anthropic · Gemini<br/>embeddings · audio · images"] -->|"/v1 (proxy port, or shared :20180)"| Gateway
+    Client["LLM Clients<br/>OpenAI · Anthropic · Gemini<br/>embeddings · audio · images"] -->|"/v1 (shared :20180 or proxy_port)"| Gateway
 
     subgraph Gateway["FlameGate :20180"]
         direction TB
-        Auth["Auth & API key · Budget · Rate limit"]
-        Process["Guardrails · Token slimming · Semantic cache"]
-        Dispatch["Dispatch & cooldown · Metering"]
+        Auth["Auth & API Key · Budget · Rate Limit"]
+        Process["Guardrails · Token Slimming · Semantic Cache"]
+        Dispatch["Dispatch Strategy · Cooldown · Metering"]
         Auth --> Process --> Dispatch
     end
 
-    Gateway --> POpenAI["OpenAI provider"]
-    Gateway --> PAnthropic["Anthropic provider"]
-    Gateway --> PGemini["Gemini provider"]
-    Gateway --> PExt["WASM extensions (wazero)"]
+    Gateway --> POpenAI["OpenAI Provider"]
+    Gateway --> PAnthropic["Anthropic Provider"]
+    Gateway --> PGemini["Gemini Provider"]
+    Gateway --> PExt["WASM Extensions (wazero)"]
 ```
 
-The admin dashboard, REST API, and (by default) the proxy API share port `20180`. Set `server.proxy_port` to expose the `/v1` proxy API on a dedicated listener (e.g. `20181`).
+The admin dashboard, REST API, and proxy endpoints share port `20180` by default. You can set `server.proxy_port` to expose the `/v1` proxy API on a dedicated listener (e.g. `20181`).
 
 ---
 
-## Quick start
+## Installation & Deployment
 
-### Prerequisites
+### Option A: Shell Installer (macOS & Linux)
 
+Install the pre-compiled binary directly to `~/.local/bin` with one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bobbyunknown/flamegate/main/scripts/install.sh | bash
+```
+
+---
+
+### Option B: NPM / NPX
+
+Run instantly with `npx` / `bunx` or install globally using your favorite Node package manager:
+
+```bash
+# Run directly without global installation
+npx flamegate
+
+# Or install globally
+npm install -g flamegate
+# or: bun install -g flamegate / pnpm add -g flamegate
+```
+
+---
+
+### Option C: Docker & Docker Compose
+
+Official multi-architecture Docker images (`linux/amd64`, `linux/arm64`) are published to **Docker Hub** and **GitHub Container Registry (GHCR)**:
+
+- `bobbyunknown/flamegate:latest`
+- `ghcr.io/bobbyunknown/flamegate:latest`
+
+#### 1. Quick Start with Docker Compose
+
+A ready-to-use [`docker-compose.yml`](./docker-compose.yml) is included:
+
+```bash
+# Clone the repository
+git clone https://github.com/bobbyunknown/flamegate.git
+cd flamegate
+
+# Start FlameGate in the background
+docker compose up -d
+
+# Generate your initial administrator API key
+docker compose exec flamegate flamegate bootstrap
+```
+
+Access the dashboard at `http://localhost:20180`.
+
+#### 2. Running with Docker CLI
+
+```bash
+# Pull the latest image
+docker pull bobbyunknown/flamegate:latest
+
+# Run the container (mapping Dashboard :20180 and Proxy :20181)
+docker run -d \
+  --name flamegate \
+  --restart unless-stopped \
+  -p 20180:20180 \
+  -p 20181:20181 \
+  -v flamegate_data:/root/.flamegate \
+  bobbyunknown/flamegate:latest
+
+# Bootstrap initial API key
+docker exec -it flamegate flamegate bootstrap
+```
+
+---
+
+### Option D: Pre-built Binaries
+
+Download standalone, zero-dependency native binaries from [GitHub Releases](https://github.com/bobbyunknown/flamegate/releases):
+
+- **Linux**: `flamegate-linux-amd64`, `flamegate-linux-arm64`
+- **macOS**: `flamegate-darwin-arm64` (Apple Silicon), `flamegate-darwin-amd64` (Intel)
+- **Windows**: `flamegate-windows-amd64.exe`, `flamegate-windows-arm64.exe`
+
+```bash
+# Example for macOS (Apple Silicon)
+chmod +x flamegate-darwin-arm64
+mv flamegate-darwin-arm64 flamegate
+
+# Bootstrap key and run
+./flamegate bootstrap
+./flamegate
+```
+
+---
+
+### Option E: Build from Source
+
+**Prerequisites:**
 - **Go** 1.26+
-- **Node.js** 18+ and `bun` (for building the frontend dashboard)
-
-### 1. Build
+- **Bun** (or Node.js 18+)
 
 ```bash
 git clone https://github.com/bobbyunknown/flamegate.git
 cd flamegate
 
-go build ./cmd/flamegate                    # backend binary → ./flamegate
-cd frontend && bun install && bun run build # React dashboard bundle
+# Build React UI assets and compile standalone binary
+make build-ui
+
+# Bootstrap initial admin key
+./bin/flamegate bootstrap
+
+# Run the server
+./bin/flamegate
 ```
 
-`go build ./cmd/flamegate` produces the `./flamegate` binary in the repo root.
+---
 
-### 2. Bootstrap an API key
+## Quick Usage
 
-```bash
-./flamegate bootstrap
-```
+### 1. Access Dashboard
 
-This creates the initial database and prints an administrator API key (prefixed `fg_`) once.
+Open `http://localhost:20180` in your browser. Log in using the admin API key generated from `./flamegate bootstrap` (or `docker compose exec flamegate flamegate bootstrap`).
 
-### 3. Start the server
+### 2. Send a Request
 
-```bash
-./flamegate start
-```
-
-The server listens on `http://localhost:20180` and opens the dashboard in your browser. `flamegate status` reports whether it is running.
-
-> [!TIP]
-> For development with hot reload: run `air` for the Go backend (see `.air.toml`) and `cd frontend && bun run dev` for the Vite dev server on `:5180`.
-
-### 4. Send your first request
+Use any OpenAI-compatible client, SDK, or `curl` pointing to the LLM proxy port (`20181`):
 
 ```bash
-curl http://localhost:20180/v1/chat/completions \
+curl http://localhost:20181/v1/chat/completions \
   -H "Authorization: Bearer fg_your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gpt-4o",
-    "messages": [{"role": "user", "content": "Hello FlameGate!"}]
+    "messages": [
+      {"role": "user", "content": "Hello FlameGate!"}
+    ]
   }'
 ```
 
-FlameGate validates your key and budget, runs active guardrails, slims the prompt, dispatches to the best active provider account, and records usage in real time.
+---
+
+## CLI Reference
+
+```
+Usage:
+  flamegate [flags]
+  flamegate [command]
+
+Commands:
+  status                   Check whether local server is running and print its URL
+  bootstrap                Create an initial API key and print it once
+  ext                      Manage WASM extensions (install, list, enable, disable, uninstall)
+  version                  Print version and commit metadata
+  help                     Show help message
+
+Flags:
+  -c, --config <path>      Path to a TOML config file (default: ~/.flamegate/flamegate.toml)
+  -k, --key-name <name>    (bootstrap) Name for the created API key (default: default)
+  -bootstrap               Create an initial API key and exit
+  -healthcheck             Perform local health check and exit with status code
+```
+
+---
+
+## WASM Extensions
+
+FlameGate utilizes a WebAssembly runtime (`wazero`) to support custom providers and dialect translators without modifying or recompiling the core application.
+
+```bash
+# Install an extension from a local folder (must contain schema.json + <slug>.wasm)
+./flamegate ext install ./path-to-extension
+
+# View installed extensions
+./flamegate ext list
+
+# Enable or disable extensions dynamically
+./flamegate ext enable  <slug>
+./flamegate ext disable <slug>
+
+# Remove an extension
+./flamegate ext uninstall <slug>
+```
+
+Official extensions and developer guides are maintained in the [`flamegate-ext`](./flamegate-ext) directory.
 
 ---
 
 ## Configuration
 
-Configuration is resolved in increasing order of precedence: **defaults → TOML file → environment variables**.
+Configuration is loaded from **defaults → TOML file → environment variables**.
 
-- The default config file is `~/.flamegate/flamegate.toml`. Override it with `-c <path>`/`--config`.
-- Environment variables are prefixed `FLAMEGATE_` and use double underscores for nesting — `FLAMEGATE_SERVER__PORT=8080` sets `server.port`.
+- Default file location: `~/.flamegate/flamegate.toml` (or `%APPDATA%\flamegate\flamegate.toml` on Windows).
+- Environment variables use the `FLAMEGATE_` prefix with double underscores for nested keys (e.g. `FLAMEGATE_SERVER__PORT=8080`).
 
-Reference config is available at [`flamegate.example.toml`](./flamegate.example.toml).
+Reference configuration template: [`flamegate.example.toml`](./flamegate.example.toml).
 
 | Setting | Description | Default |
 | --- | --- | --- |
 | `server.host` / `server.port` | Admin API + dashboard listener | `127.0.0.1:20180` |
 | `server.proxy_port` | Dedicated `/v1` proxy listener (`0` = share server port) | `0` |
 | `database.driver` | `sqlite` or `postgres` | `sqlite` |
-| `database.dsn` | Connection string; SQLite defaults to `<data_dir>/flamegate.db` | empty |
-| `security.master_key` | Base64 32-byte key for credential encryption; auto-generated if empty | empty |
-| `security.jwt_secret` | Signs dashboard session tokens; auto-generated if empty | empty |
-| `security.bind_loopback_only` | Reject non-loopback access to dashboard/admin API | `true` |
+| `database.dsn` | Connection string (SQLite defaults to `<data_dir>/flamegate.db`) | empty |
+| `security.master_key` | Base64 32-byte key for credential encryption; generated if empty | empty |
+| `security.jwt_secret` | Signs dashboard session tokens; generated if empty | empty |
+| `security.bind_loopback_only` | Restrict dashboard and admin API to loopback interfaces | `true` |
 | `log.level` / `log.format` | `debug` \| `info` \| `warn` \| `error`; `text` \| `json` | `info` / `text` |
-| `meter.async` | Buffered/batched usage writes | `true` |
-| `cache.enabled` | Semantic response cache | `false` |
-| `limits.enabled` | Per-key rate limiter | `false` |
-| `health.enabled` | Background account/model probes | `true` |
-
-> [!NOTE]
-> Data (database, master key, extensions) lives under `data.dir`, which defaults to `~/.flamegate` (`%APPDATA%/flamegate` on Windows).
+| `meter.async` | Asynchronous buffered usage writes | `true` |
+| `cache.enabled` | Semantic and exact response cache | `false` |
+| `limits.enabled` | Per-key rate limiting engine | `false` |
+| `health.enabled` | Background health probe service | `true` |
 
 ---
 
-## WASM extensions
-
-Provider connectors that are not built in can be installed as WebAssembly modules without touching the core binary. Extensions run in FlameGate's sandboxed `wazero` runtime (no CGO), route network calls through host imports, and hot-reload when the `.wasm` file changes on disk.
+## Development & Testing
 
 ```bash
-./flamegate ext install ./path-to-extension   # dir containing schema.json + <slug>.wasm
-./flamegate ext list
-./flamegate ext enable  <slug>
-./flamegate ext disable <slug>
-./flamegate ext uninstall <slug>
-```
+# Run backend with hot reload
+make dev
 
-Official extensions live in the [`flamegate-ext`](./flamegate-ext) monorepo. See [`flamegate-ext/README.md`](./flamegate-ext/README.md) to build new ones; any language targeting `wasm32` works.
+# Run frontend dev server with Vite (:5180)
+make ui-dev
 
----
+# Run all unit and integration tests
+make test
 
-## Project layout
+# Run tests with race detector
+make test-race
 
-```
-flamegate/
-├── cmd/flamegate/          # CLI entrypoint (start, status, bootstrap, ext, version)
-├── internal/
-│   ├── domain/             # Pure domain types, value objects, connectors (zero external deps)
-│   ├── application/        # Use cases, DTOs, repository ports, read queries
-│   └── infrastructure/     # HTTP API (Huma + Chi), GORM persistence, connectors,
-│                           #   WASM engine, guardrails, dispatch, meter, transform
-├── frontend/               # React dashboard (Vite, Tailwind, shadcn/ui)
-├── flamegate-ext/          # WASM extension monorepo (template + provider modules)
-├── skills/                 # Agent skills for the CLI
-├── spec/                   # Design specs and ADRs
-└── db/                     # GORM schemas & Atlas migrations
+# Run linter
+make lint
 ```
 
 ---
 
-## Testing
+## Acknowledgements
 
-```bash
-go test ./...            # full test suite
-go test -race ./...      # with race detector
-go test -run TestFoo ./internal/infrastructure/http/   # single package
-golangci-lint run        # lint suite
-go vet ./...             # static analysis
-```
-
----
-
-## Related & Acknowledgements
-
-- [`flamegate-ext`](https://github.com/bobbyunknown/flamegate-ext) — official WASM extension repository
-- FlameGate was originally inspired by [KeiRouter](https://github.com/mydisha/keirouter). It has since been completely re-architected with an extension-first WASM plugin system, GORM persistence, Huma OpenAPI layer, and a modernized React dashboard.
+- Built with [Wazero](https://wazero.io/) for pure Go WebAssembly execution.
+- Inspired by [KeiRouter](https://github.com/mydisha/keirouter). FlameGate features a redesigned microkernel extension architecture, GORM persistence, Huma typed OpenAPI handlers, and a modernized React dashboard.

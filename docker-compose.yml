@@ -1,0 +1,25 @@
+services:
+  flamegate:
+    image: bobbyunknown/flamegate:latest
+    container_name: flamegate
+    restart: unless-stopped
+    ports:
+      - "20180:20180" # Admin API & Dashboard
+      - "20181:20181" # Dedicated /v1 Proxy Port
+    volumes:
+      - flamegate_data:/root/.flamegate
+      # - ./flamegate.toml:/root/.flamegate/flamegate.toml:ro # Optional custom config
+    environment:
+      - FLAMEGATE_LOG__LEVEL=info
+      # - FLAMEGATE_SERVER__PROXY_PORT=20181
+      # - FLAMEGATE_SECURITY__BIND_LOOPBACK_ONLY=false # Set to false if exposing behind reverse proxy
+    healthcheck:
+      test: ["CMD", "flamegate", "-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  flamegate_data:
+    driver: local

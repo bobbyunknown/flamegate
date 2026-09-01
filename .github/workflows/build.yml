@@ -8,15 +8,15 @@ on:
         required: false
         default: ""
   push:
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
-      - ".github/ISSUE_TEMPLATE/**"
+    paths:
+      - "VERSION"
     branches:
       - main
     tags:
       - "v*"
   pull_request:
+    paths:
+      - "VERSION"
     branches:
       - main
 
@@ -129,12 +129,15 @@ jobs:
           LDFLAGS="-X 'main.Version=${VERSION}' -X 'main.Commit=${SHORT_SHA}' -X 'main.BuildTime=${BUILDTIME}' -w -s -buildid="
           
           if [ "${{ matrix.jobs.goos }}" = "windows" ]; then
-            BIN_NAME="${OUTPUT_NAME}-${VERSION}.exe"
+            BIN_NAME="${OUTPUT_NAME}.exe"
             go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN_NAME}" ./cmd/flamegate
+            cp "${BIN_NAME}" "${OUTPUT_NAME}-${VERSION}.exe"
           else
-            BIN_NAME="${OUTPUT_NAME}-${VERSION}"
+            BIN_NAME="${OUTPUT_NAME}"
             go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN_NAME}" ./cmd/flamegate
             chmod +x "${BIN_NAME}"
+            cp "${BIN_NAME}" "${OUTPUT_NAME}-${VERSION}"
+            chmod +x "${OUTPUT_NAME}-${VERSION}"
           fi
 
       - name: Upload Artifact
@@ -164,6 +167,13 @@ jobs:
           cd bin/
           find . -maxdepth 1 -type f -name "flamegate-*" | sort | xargs sha256sum > checksums.txt
           cat checksums.txt
+        shell: bash
+
+      - name: Clean Old Nightly Release
+        run: |
+          gh release delete nightly -y --cleanup-tag || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
 
       - name: Create / Update Nightly Prerelease

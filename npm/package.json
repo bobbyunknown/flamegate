@@ -1,0 +1,42 @@
+{
+  "name": "flamegate",
+  "version": "0.1.0",
+  "description": "FlameGate — self-hostable LLM proxy, intelligent router, and WebAssembly extension runtime",
+  "main": "bin/flamegate.js",
+  "bin": {
+    "flamegate": "bin/flamegate.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bobbyunknown/flamegate.git"
+  },
+  "keywords": [
+    "flamegate",
+    "llm",
+    "ai",
+    "proxy",
+    "router",
+    "openai",
+    "anthropic",
+    "gemini",
+    "wasm",
+    "wazero"
+  ],
+  "author": "Bobby Unknown",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/bobbyunknown/flamegate/issues"
+  },
+  "homepage": "https://github.com/bobbyunknown/flamegate#readme",
+  "engines": {
+    "node": ">=16"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md"
+  ]
+}
