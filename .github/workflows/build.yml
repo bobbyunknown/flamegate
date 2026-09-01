@@ -4,21 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Tag version to release (e.g. v0.2.0, v0.2.0-beta.1)"
+        description: "Tag version to release (e.g. v0.2.0, v0.2.0-beta.1, leave empty for nightly)"
         required: false
         default: ""
   push:
-    paths:
-      - "VERSION"
-    branches:
-      - main
     tags:
       - "v*"
-  pull_request:
-    paths:
-      - "VERSION"
-    branches:
-      - main
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -151,7 +142,7 @@ jobs:
   Upload-Nightly:
     permissions:
       contents: write
-    if: ${{ github.event_name != 'workflow_dispatch' && !startsWith(github.event_name, 'pull_request') && !startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.version == '') || (!startsWith(github.ref, 'refs/tags/v') && github.event_name != 'workflow_dispatch') }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
