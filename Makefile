@@ -108,9 +108,7 @@ releases: $(addprefix build-, $(PLATFORMS))
 	@echo "--> Packaging release archives..."
 	@cd $(BINDIR) && for file in $(NAME)-*; do \
 		case "$$file" in \
-			*.exe) \
-				which zip > /dev/null 2>&1 && zip -q "$${file%.exe}-$(VERSION).zip" "$$file" && rm "$$file" || true ;; \
-			*.zip|*.gz) ;; \
+			*.gz) ;; \
 			*) \
 				gzip -f -c "$$file" > "$$file-$(VERSION).gz" && rm "$$file" ;; \
 		esac; \

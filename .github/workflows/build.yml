@@ -130,7 +130,7 @@ jobs:
           
           if [ "${{ matrix.jobs.goos }}" = "windows" ]; then
             go build -trimpath -ldflags "${LDFLAGS}" -o "${OUTPUT_NAME}.exe" ./cmd/flamegate
-            zip "${OUTPUT_NAME}-${VERSION}.zip" "${OUTPUT_NAME}.exe"
+            gzip -c "${OUTPUT_NAME}.exe" > "${OUTPUT_NAME}-${VERSION}.gz"
             rm "${OUTPUT_NAME}.exe"
           else
             go build -trimpath -ldflags "${LDFLAGS}" -o "${OUTPUT_NAME}" ./cmd/flamegate
@@ -142,9 +142,9 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ matrix.jobs.output }}"
+          name: "binary-${{ matrix.jobs.output }}"
           path: |
-            flamegate-*.*
+            flamegate-*.gz
           retention-days: 7
 
   Upload-Nightly:
@@ -154,16 +154,17 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
+      - name: Download all binary artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: "binary-*"
           path: bin/
           merge-multiple: true
 
       - name: Generate Checksums
         run: |
           cd bin/
-          find . -type f -name "flamegate-*" | sort | xargs sha256sum > checksums.txt
+          find . -maxdepth 1 -type f -name "flamegate-*.gz" | sort | xargs sha256sum > checksums.txt
           cat checksums.txt
         shell: bash
 
@@ -172,7 +173,9 @@ jobs:
         with:
           tag_name: "nightly"
           prerelease: true
-          files: bin/*
+          files: |
+            bin/flamegate-*.gz
+            bin/checksums.txt
           generate_release_notes: true
           body: |
             ### FlameGate Continuous Nightly Build
@@ -209,16 +212,17 @@ jobs:
           fi
         shell: bash
 
-      - name: Download all artifacts
+      - name: Download all binary artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: "binary-*"
           path: bin/
           merge-multiple: true
 
       - name: Generate Checksums
         run: |
           cd bin/
-          find . -type f -name "flamegate-*" | sort | xargs sha256sum > checksums.txt
+          find . -maxdepth 1 -type f -name "flamegate-*.gz" | sort | xargs sha256sum > checksums.txt
           cat checksums.txt
         shell: bash
 
@@ -226,7 +230,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          files: bin/*
+          files: |
+            bin/flamegate-*.gz
+            bin/checksums.txt
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           generate_release_notes: true
 
