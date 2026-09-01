@@ -122,13 +122,10 @@ jobs:
           if [ "${{ matrix.jobs.goos }}" = "windows" ]; then
             BIN_NAME="${OUTPUT_NAME}.exe"
             go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN_NAME}" ./cmd/flamegate
-            cp "${BIN_NAME}" "${OUTPUT_NAME}-${VERSION}.exe"
           else
             BIN_NAME="${OUTPUT_NAME}"
             go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN_NAME}" ./cmd/flamegate
             chmod +x "${BIN_NAME}"
-            cp "${BIN_NAME}" "${OUTPUT_NAME}-${VERSION}"
-            chmod +x "${OUTPUT_NAME}-${VERSION}"
           fi
 
       - name: Upload Artifact
