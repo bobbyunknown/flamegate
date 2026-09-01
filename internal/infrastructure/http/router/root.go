@@ -57,6 +57,7 @@ func New(d handlers.Deps) *Server {
 	if cfg.Docs.Enabled {
 		openapi.RegisterDocs(r, api.OpenAPI())
 	}
+	RegisterEmbeddedUIRoutes(r)
 	return s
 }
 

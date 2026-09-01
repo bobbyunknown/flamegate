@@ -15,14 +15,36 @@ import (
 
 	core "github.com/bobbyunknown/flamegate/internal/domain"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/budget"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/http/middleware"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 )
 
 // maxBodyBytes caps inbound request bodies to protect against oversized uploads.
 const maxBodyBytes = 32 << 20 // 32 MiB
 
-// logRequest logs a completed request to the console log buffer.
+// logRequest logs a completed request to the access log file and console log buffer.
 func (s *Handler) logRequest(keyName, provider, model string, tokens int, costMicros int64, latencyMs int, cacheHit bool, err error) {
+	cost := float64(costMicros) / 1_000_000
+	if err != nil {
+		middleware.WriteLLMLog(fmt.Sprintf("[ERROR] provider=%s model=%s key=%s latency=%dms error=%v",
+			provider, model, keyName, latencyMs, err))
+		if s.log != nil {
+			s.log.Debugf("[LLM ERROR] provider=%s model=%s key=%s latency=%dms error=%v",
+				provider, model, keyName, latencyMs, err)
+		}
+	} else {
+		cacheNote := ""
+		if cacheHit {
+			cacheNote = " (cache-hit)"
+		}
+		middleware.WriteLLMLog(fmt.Sprintf("[COMPLETED] provider=%s model=%s key=%s tokens=%d cost=$%.4f latency=%dms%s",
+			provider, model, keyName, tokens, cost, latencyMs, cacheNote))
+		if s.log != nil {
+			s.log.Debugf("[LLM COMPLETED] provider=%s model=%s key=%s tokens=%d cost=$%.4f latency=%dms%s",
+				provider, model, keyName, tokens, cost, latencyMs, cacheNote)
+		}
+	}
+
 	if s.consoleLog == nil {
 		return
 	}
@@ -40,7 +62,6 @@ func (s *Handler) logRequest(keyName, provider, model string, tokens int, costMi
 	if latencyMs > 8000 {
 		level = "WARN"
 	}
-	cost := float64(costMicros) / 1_000_000
 	cacheNote := ""
 	if cacheHit {
 		cacheNote = " · cache hit"

@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
-
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 )
 

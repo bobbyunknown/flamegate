@@ -41,7 +41,7 @@ func NewHotReloader(engine *Engine, dir string, modules map[string]*Module, inte
 
 // Run starts the hot-reload polling loop. It blocks until ctx is cancelled.
 func (h *HotReloader) Run(ctx context.Context) {
-	h.log.Info("hot-reload started", "dir", h.dir, "interval", h.interval)
+	h.log.WithFields(logrus.Fields{"dir": h.dir, "interval": h.interval}).Info("hot-reload started")
 
 	ticker := time.NewTicker(h.interval)
 	defer ticker.Stop()

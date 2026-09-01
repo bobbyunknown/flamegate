@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -166,12 +167,16 @@ type HealthConfig struct {
 	MaxModelsPerProvider int           `koanf:"max_models_per_provider"`
 }
 
-// LogConfig controls structured logging.
+// LogConfig controls structured logging and file outputs.
 type LogConfig struct {
 	// Level: debug, info, warn, error.
 	Level string `koanf:"level"`
 	// Format: json or text.
 	Format string `koanf:"format"`
+	// Dir: directory where request logs (http.log and llm.log) are written.
+	// Defaults to /tmp/flamegate on Unix/macOS, or %TEMP%\flamegate on Windows.
+	// Truncated on each startup so it starts fresh.
+	Dir string `koanf:"dir"`
 }
 
 // DataConfig controls on-disk state location.
@@ -276,6 +281,14 @@ func defaultExtDir() string {
 	return filepath.Join("~", ".flamegate", "exts")
 }
 
+// defaultLogDir returns the platform-specific default log directory.
+func defaultLogDir() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(os.TempDir(), "flamegate")
+	}
+	return "/tmp/flamegate"
+}
+
 // Default returns the baseline configuration applied before file/env overrides.
 func Default() Config {
 	return Config{
@@ -330,7 +343,11 @@ func Default() Config {
 			RecentModelWindow:    24 * time.Hour,
 			MaxModelsPerProvider: 8,
 		},
-		Log:  LogConfig{Level: "info", Format: "text"},
+		Log: LogConfig{
+			Level:  "info",
+			Format: "text",
+			Dir:    defaultLogDir(),
+		},
 		Docs: DocsConfig{Enabled: false},
 		WASM: WASMConfig{
 			ExtDir:            defaultExtDir(),

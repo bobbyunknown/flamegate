@@ -3,21 +3,65 @@
 //
 //  1. A value injected at build time via -ldflags "-X main.Version=...". This is
 //     what release builds and `make build` use (derived from the git tag).
-//  2. A committed VERSION file embedded into the binary. This is the fallback
+//  2. A committed VERSION file at the repository root read as fallback
 //     for local builds (air, go run) where no ldflags are injected.
 package version
 
 import (
-	_ "embed"
+	"os"
+	"path/filepath"
+	"runtime/debug"
 	"strings"
+	"sync"
 )
 
-//go:embed VERSION
-var embedded string
+var (
+	embeddedOnce sync.Once
+	embeddedVal  string
+)
 
-// Embedded returns the committed version string from the VERSION file, trimmed.
+// Embedded returns the committed version string from the root VERSION file, trimmed.
 func Embedded() string {
-	return strings.TrimSpace(embedded)
+	embeddedOnce.Do(func() {
+		// 1. Search for VERSION file from current working directory upwards (up to 5 levels)
+		if dir, err := os.Getwd(); err == nil {
+			curr := dir
+			for i := 0; i < 5; i++ {
+				candidate := filepath.Join(curr, "VERSION")
+				if data, err := os.ReadFile(candidate); err == nil {
+					val := strings.TrimSpace(string(data))
+					if val != "" {
+						embeddedVal = val
+						return
+					}
+				}
+				parent := filepath.Dir(curr)
+				if parent == curr {
+					break
+				}
+				curr = parent
+			}
+		}
+
+		// 2. Fallback to Go build info VCS revision
+		if info, ok := debug.ReadBuildInfo(); ok {
+			if info.Main.Version != "" && info.Main.Version != "(devel)" {
+				embeddedVal = info.Main.Version
+				return
+			}
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.revision" && setting.Value != "" {
+					rev := setting.Value
+					if len(rev) > 7 {
+						rev = rev[:7]
+					}
+					embeddedVal = rev
+					return
+				}
+			}
+		}
+	})
+	return embeddedVal
 }
 
 // Resolve picks the best available version for display. The ldflags-injected

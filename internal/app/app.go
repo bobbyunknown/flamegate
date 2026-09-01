@@ -143,10 +143,10 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 				AllowedHosts: cfg.WASM.AllowedHosts,
 				Entrypoints:  ext.Schema.Entrypoints,
 			}); compileErr != nil {
-				log.Warn("WASM extension compile failed", "slug", ext.Slug, "err", compileErr)
+				log.WithFields(logrus.Fields{"slug": ext.Slug, "err": compileErr}).Warn("WASM extension compile failed")
 				continue
 			}
-			log.Info("WASM extension loaded", "slug", ext.Slug, "version", ext.Schema.Version)
+			log.WithFields(logrus.Fields{"slug": ext.Slug, "version": ext.Schema.Version}).Info("WASM extension loaded")
 			wasmModules[ext.Slug] = wasm.NewModule(wasmEngine, ext.Slug, cfg.WASM.MaxInst)
 			display := ext.Schema.Name
 			if display == "" {
@@ -169,7 +169,7 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 			return wasmEngine.GetConnector(slug)
 		})
 		connRegistry.SetForceWasmAll(cfg.WASM.ForceWasmAll)
-		log.Info("WASM fallback registered", "extensions", len(wasmEngine.Slugs()), "force_wasm_all", cfg.WASM.ForceWasmAll)
+		log.WithFields(logrus.Fields{"extensions": len(wasmEngine.Slugs()), "force_wasm_all": cfg.WASM.ForceWasmAll}).Info("WASM fallback registered")
 	}
 	// Remote extension installer shared by the admin API and CLI. It reuses the
 	// same WASM engine, vault, and ExtensionRepo as startup scanning.
@@ -603,7 +603,7 @@ func (a *App) Run(ctx context.Context) error {
 	for _, ln := range listeners {
 		ln := ln
 		go func() {
-			a.log.Info("FlameGate listening", "addr", ln.Addr().String(), "db", a.cfg.Database.Driver)
+			a.log.WithFields(logrus.Fields{"addr": ln.Addr().String(), "db": a.cfg.Database.Driver}).Info("FlameGate listening")
 			if serveErr := a.server.Serve(ln); serveErr != nil && serveErr != http.ErrServerClosed {
 				errCh <- serveErr
 			}
@@ -613,7 +613,7 @@ func (a *App) Run(ctx context.Context) error {
 	if a.proxyServer != nil {
 		go func() {
 			addr := a.proxyServer.Addr
-			a.log.Info("FlameGate proxy listening", "addr", addr, "surface", "v1")
+			a.log.WithFields(logrus.Fields{"addr": addr, "surface": "v1"}).Info("FlameGate proxy listening")
 			ln, err := net.Listen("tcp", addr)
 			if err != nil {
 				errCh <- fmt.Errorf("app: listen proxy %s: %w", addr, err)

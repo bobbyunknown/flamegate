@@ -10,28 +10,25 @@ import (
 const (
 	ansiReset  = "\033[0m"
 	ansiBold   = "\033[1m"
+	ansiDim    = "\033[2m"
 	ansiOrange = "\033[38;5;208m"
+	ansiCyan   = "\033[36m"
+	ansiGreen  = "\033[32m"
+	ansiYellow = "\033[33m"
 )
 
 type BannerConfig struct {
-	Version  string
-	Addr     string
-	DBDriver string
-	Cache    string
-	DataDir  string
-	LogLevel string
+	Version   string
+	Commit    string
+	Mode      string
+	AdminAddr string
+	LLMAddr   string
+	DBDriver  string
+	Cache     string
+	DataDir   string
+	LogLevel  string
+	LogDir    string
 }
-
-const (
-	logoW  = 53
-	innerW = logoW - 2
-)
-
-const logo = "█████ █      ███  █   █ █████  ███   ███  █████ █████\n" +
-	"█     █     █   █ ██ ██ █     █     █   █   █   █\n" +
-	"████  █     █████ █ █ █ ████  █  ██ █████   █   ████\n" +
-	"█     █     █   █ █   █ █     █   █ █   █   █   █\n" +
-	"█     █████ █   █ █   █ █████  ███  █   █   █   █████"
 
 func PrintBanner(w io.Writer, cfg BannerConfig) {
 	if f, ok := w.(interface{ Fd() uintptr }); ok {
@@ -40,45 +37,50 @@ func PrintBanner(w io.Writer, cfg BannerConfig) {
 		}
 	}
 
+	modeBadge := "production"
+	modeColor := ansiGreen
+	if cfg.Mode == "dev" || cfg.Mode == "development" {
+		modeBadge = "development"
+		modeColor = ansiYellow
+	}
+
+	commitStr := ""
+	if cfg.Commit != "" && cfg.Commit != "unknown" {
+		commitStr = " " + ansiDim + "(" + cfg.Commit + ")" + ansiReset
+	}
+
+	divider := ansiDim + strings.Repeat("─", 54) + ansiReset
+
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "  %s%sFLAMEGATE%s %sv%s%s%s  %s[%s]%s\n",
+		ansiBold, ansiOrange, ansiReset,
+		ansiBold, cfg.Version, ansiReset,
+		commitStr,
+		modeColor, modeBadge, ansiReset)
+	fmt.Fprintln(w, "  "+divider)
+
 	rows := []struct {
 		label, value string
 	}{
-		{"HTTP", "http://" + cfg.Addr},
-		{"DB", cfg.DBDriver},
+		{"Admin HTTP", cfg.AdminAddr},
+		{"LLM Proxy", cfg.LLMAddr},
+		{"Database", cfg.DBDriver},
 		{"Cache", cfg.Cache},
-		{"Data", cfg.DataDir},
-		{"Log", cfg.LogLevel},
+		{"Data Dir", cfg.DataDir},
+		{"Log Level", cfg.LogLevel},
+	}
+	if cfg.LogDir != "" {
+		rows = append(rows, struct{ label, value string }{"Logs Dir", cfg.LogDir + " (http.log, llm.log)"})
 	}
 
-	hLine := strings.Repeat("─", innerW)
-
-	fmt.Fprintln(w)
-	for _, line := range strings.Split(logo, "\n") {
-		fmt.Fprintf(w, "  %s%s%s\n", ansiOrange, line, ansiReset)
-	}
-	fmt.Fprintln(w)
-
-	fmt.Fprintf(w, "  %s╭%s╮%s\n", ansiOrange, hLine, ansiReset)
-	boxRow(w, innerW, "FlameGate "+cfg.Version, false)
-	boxRow(w, innerW, "", false)
 	for _, r := range rows {
-		boxRow(w, innerW, r.label+"  "+r.value, true)
+		fmt.Fprintf(w, "  %s%-12s%s %s%s%s\n",
+			ansiDim, r.label, ansiReset,
+			ansiCyan, r.value, ansiReset)
 	}
-	fmt.Fprintf(w, "  %s╰%s╯%s\n", ansiOrange, hLine, ansiReset)
-	fmt.Fprintln(w)
-}
 
-func boxRow(w io.Writer, innerW int, content string, bold bool) {
-	pad := innerW - 1 - len(content)
-	if pad < 0 {
-		pad = 0
-	}
-	if bold {
-		_, _ = fmt.Fprintf(w, "  %s│ %s%s%s%s%s│%s\n",
-			ansiOrange, ansiBold, content, ansiReset, ansiOrange, strings.Repeat(" ", pad), ansiReset)
-	} else {
-		_, _ = fmt.Fprintf(w, "  %s│ %-*s│%s\n", ansiOrange, innerW-1, content, ansiReset)
-	}
+	fmt.Fprintln(w, "  "+divider)
+	fmt.Fprintln(w)
 }
 
 func PrintBannerStdout(cfg BannerConfig) {

@@ -7,8 +7,7 @@ import (
 )
 
 // IsTerminal reports whether the given file descriptor is connected to a
-// terminal. Used to auto-enable pretty output during development while keeping
-// plain text in CI/production (piped or redirected stdout).
+// terminal (including Windows Cygwin/Mintty/Git Bash).
 func IsTerminal(fd uintptr) bool {
 	return isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd)
 }
