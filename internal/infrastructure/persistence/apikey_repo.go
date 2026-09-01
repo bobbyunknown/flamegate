@@ -125,3 +125,12 @@ func (r *APIKeyRepo) SetAllowedModelsOnTx(ctx context.Context, tx *gorm.DB, keyI
 	}
 	return nil
 }
+
+// RotateSecret updates the key hash, lookup hash, and display for an existing API key.
+func (r *APIKeyRepo) RotateSecret(ctx context.Context, id, keyHash, lookupHash, display string) error {
+	return r.db.WithContext(ctx).Model(&schema.APIKey{}).Where("id = ?", id).Updates(map[string]any{
+		"key_hash":    keyHash,
+		"lookup_hash": lookupHash,
+		"display":     display,
+	}).Error
+}

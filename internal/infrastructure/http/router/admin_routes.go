@@ -69,6 +69,7 @@ func (s *Server) registerAdminAPI(api huma.API) {
 	huma.Register(api, adminOp("create-key", "POST", "/keys", "Create API key", "Keys", adminMw), s.adminHandler.HumaCreateKey)
 	huma.Register(api, adminOp("update-key", "PATCH", "/keys/{id}", "Update API key", "Keys", adminMw), s.adminHandler.HumaUpdateKey)
 	huma.Register(api, adminOp("delete-key", "DELETE", "/keys/{id}", "Delete API key", "Keys", adminMw), s.adminHandler.HumaDeleteKey)
+	huma.Register(api, adminOp("rotate-key", "POST", "/keys/{id}/rotate", "Rotate API key secret", "Keys", adminMw), s.adminHandler.HumaRotateKey)
 
 	listChainsOp := adminOp("list-chains", "GET", "/chains", "List all chains", "Chains", adminMw)
 	listChainsOp.Description = "Returns all routing chains for the admin tenant."

@@ -953,6 +953,42 @@ func (s *Handler) HumaDeleteKey(ctx context.Context, input *DeleteKeyInput) (*De
 	return &DeleteKeyOutput{}, nil
 }
 
+// --- Rotate Key ---
+
+type RotateKeyInput struct {
+	ID string `path:"id" doc:"Key ID"`
+}
+
+type RotateKeyOutputBody struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Key     string `json:"key"`
+	Display string `json:"display"`
+}
+
+type RotateKeyOutput struct {
+	Body RotateKeyOutputBody
+}
+
+func (s *Handler) HumaRotateKey(ctx context.Context, input *RotateKeyInput) (*RotateKeyOutput, error) {
+	issued, err := s.identity.Rotate(ctx, input.ID)
+	if err != nil {
+		if errors.Is(err, schema.ErrNotFound) {
+			return nil, huma.Error404NotFound("key not found")
+		}
+		return nil, MapError(err)
+	}
+
+	return &RotateKeyOutput{
+		Body: RotateKeyOutputBody{
+			ID:      issued.Record.ID,
+			Name:    issued.Record.Name,
+			Key:     issued.Plaintext,
+			Display: issued.Record.Display,
+		},
+	}, nil
+}
+
 // --- List Chains ---
 
 type ListChainsInput struct{}

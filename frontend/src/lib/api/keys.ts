@@ -19,4 +19,6 @@ export const updateKey = (id: string, patch: { disabled?: boolean; allowed_model
 
 export const deleteKey = (id: string) => request<void>("DELETE", `/keys/${id}`);
 
+export const rotateKey = (id: string) => request<CreatedKey>("POST", `/keys/${id}/rotate`);
+
 export const deleteKeys = (ids: string[]) => Promise.all(ids.map((id) => request<void>("DELETE", `/keys/${id}`)));

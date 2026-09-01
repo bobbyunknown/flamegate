@@ -882,7 +882,7 @@ func (s *Handler) HumaGetAccessSettings(ctx context.Context, _ *GetAccessSetting
 		"tailscale_enabled": as.Tailscale,
 		"tunnel_url":        as.TunnelURL,
 		"tailscale_url":     as.TailscaleURL,
-		"endpoint_url":      s.publicBaseURL(r) + "/v1",
+		"endpoint_url":      s.publicProxyBaseURL(r) + "/v1",
 	}}, nil
 }
 
@@ -928,7 +928,7 @@ func (s *Handler) HumaUpdateAccessSettings(ctx context.Context, input *UpdateAcc
 		"local_enabled":     current.LocalEnabled,
 		"tunnel_enabled":    current.TunnelEnabled,
 		"tailscale_enabled": current.Tailscale,
-		"endpoint_url":      s.publicBaseURL(r) + "/v1",
+		"endpoint_url":      s.publicProxyBaseURL(r) + "/v1",
 	}}, nil
 }
 

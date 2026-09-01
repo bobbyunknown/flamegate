@@ -25,7 +25,7 @@ import {
   listStoreExtensions, getStoreExtension, installRemoteExtension, updateRemoteExtension,
 } from "./extensions";
 import { listPlans, createPlan, updatePlan, deletePlan, listPlanKeys } from "./plans";
-import { listKeys, createKey, updateKey, deleteKey, deleteKeys } from "./keys";
+import { listKeys, createKey, updateKey, deleteKey, deleteKeys, rotateKey } from "./keys";
 import {
   listAccounts, createAccount, bulkCreateAccounts, updateAccount,
   deleteAccount, testAccount, validateKey, accountQuota,
@@ -91,7 +91,7 @@ export const api = {
   listPlans, createPlan, updatePlan, deletePlan, listPlanKeys,
 
   // Keys
-  listKeys, createKey, updateKey, deleteKey, deleteKeys,
+  listKeys, createKey, updateKey, deleteKey, deleteKeys, rotateKey,
 
   // Accounts
   listAccounts, createAccount, bulkCreateAccounts, updateAccount,

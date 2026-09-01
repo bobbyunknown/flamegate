@@ -226,3 +226,28 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	}
 	return err
 }
+
+// Rotate mints a new secret for an existing key, updating its stored hashes and invalidating caches.
+func (s *Service) Rotate(ctx context.Context, id string) (Issued, error) {
+	rec, err := s.keys.Get(ctx, id)
+	if err != nil {
+		return Issued{}, err
+	}
+
+	gen, err := crypto.GenerateAPIKey()
+	if err != nil {
+		return Issued{}, err
+	}
+
+	if err := s.keys.RotateSecret(ctx, id, gen.Hash, gen.Lookup, gen.Display); err != nil {
+		return Issued{}, err
+	}
+
+	s.InvalidateAuthCacheForKey(id)
+
+	rec.KeyHash = gen.Hash
+	rec.LookupHash = gen.Lookup
+	rec.Display = gen.Display
+
+	return Issued{Record: rec, Plaintext: gen.Plaintext}, nil
+}

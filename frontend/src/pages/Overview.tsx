@@ -15,8 +15,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   ResponsiveContainer,
@@ -290,7 +290,7 @@ function CustomChartTooltip({ active, payload, label }: TooltipProps) {
     <div className="rounded-lg border border-border/80 bg-popover/95 px-3 py-2 text-xs shadow-xl backdrop-blur-md">
       <div className="font-medium text-muted-foreground mb-1">{label}</div>
       <div className="flex items-center gap-2">
-        <span className="size-2 rounded-full bg-primary animate-pulse" />
+        <span className="size-2 rounded-full bg-primary" />
         <span className="text-foreground font-semibold tabular-nums">
           {count.toLocaleString()} {count === 1 ? "request" : "requests"}
         </span>
@@ -299,43 +299,45 @@ function CustomChartTooltip({ active, payload, label }: TooltipProps) {
   );
 }
 
-/* ── Activity sparkline / area chart ─────────────────────────────── */
+/* ── Activity sparkline / bar chart ──────────────────────────────── */
 
 function ActivityChart({ series }: { series: UsageInsights["series"] }) {
-  if (!series || series.length === 0) {
+  const hasData = useMemo(() => {
+    return series && series.length > 0 && series.some((s) => s.count > 0);
+  }, [series]);
+
+  if (!series || series.length === 0 || !hasData) {
     return (
-      <div className="flex h-52 items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground">
-        No activity recorded for this period.
+      <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 text-center">
+        <Activity className="size-6 text-muted-foreground/40 mb-2" />
+        <p className="text-sm font-medium text-foreground">No activity in this time range</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Requests sent through FlameGate will show up here in real time.
+        </p>
       </div>
     );
   }
 
-  // Format label ticks to avoid cramped timestamps
-  const formattedSeries = useMemo(() => {
-    return series.map((item) => ({
-      ...item,
-      displayLabel: item.label,
-    }));
-  }, [series]);
+  // Calculate clean tick step so labels don't crowd
+  const tickStep = Math.max(1, Math.floor(series.length / 6));
 
   return (
-    <div className="relative h-56 w-full pt-2">
+    <div className="relative h-52 w-full pt-2">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={formattedSeries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <BarChart data={series} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barCategoryGap="20%">
           <defs>
-            <linearGradient id="flameAreaGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#ff5540" stopOpacity={0.35} />
-              <stop offset="95%" stopColor="#ff5540" stopOpacity={0.0} />
+            <linearGradient id="barFlameGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ff5540" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="#ff5540" stopOpacity={0.4} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.35} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.25} />
           <XAxis
             dataKey="label"
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-            interval="preserveStartEnd"
-            minTickGap={30}
+            interval={tickStep}
           />
           <YAxis
             axisLine={false}
@@ -343,17 +345,14 @@ function ActivityChart({ series }: { series: UsageInsights["series"] }) {
             tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
             allowDecimals={false}
           />
-          <Tooltip content={<CustomChartTooltip />} cursor={{ stroke: "var(--color-primary)", strokeWidth: 1, strokeDasharray: "4 4" }} />
-          <Area
-            type="monotone"
+          <Tooltip content={<CustomChartTooltip />} cursor={{ fill: "rgba(255, 255, 255, 0.04)" }} />
+          <Bar
             dataKey="count"
-            stroke="#ff5540"
-            strokeWidth={2.5}
-            fillOpacity={1}
-            fill="url(#flameAreaGradient)"
-            activeDot={{ r: 5, fill: "#ff5540", stroke: "#ffffff", strokeWidth: 2 }}
+            fill="url(#barFlameGradient)"
+            radius={[4, 4, 0, 0]}
+            maxBarSize={40}
           />
-        </AreaChart>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
@@ -390,8 +389,12 @@ function ProviderBreakdown({
 }) {
   if (!providers || providers.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground">
-        No provider usage recorded yet.
+      <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 text-center">
+        <Database className="size-6 text-muted-foreground/40 mb-2" />
+        <p className="text-sm font-medium text-foreground">No provider usage yet</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Provider distribution will appear once requests are routed.
+        </p>
       </div>
     );
   }
@@ -399,43 +402,68 @@ function ProviderBreakdown({
   const calculatedTotal = totalRequests > 0 ? totalRequests : providers.reduce((sum, p) => sum + p.total_requests, 0);
 
   return (
-    <div className="space-y-4 pt-1">
-      {providers.map((p) => {
-        const color = getProviderColor(p.provider, p.color);
-        const percent = calculatedTotal > 0 ? (p.total_requests / calculatedTotal) * 100 : 0;
+    <div className="flex flex-col justify-between h-full space-y-4 pt-1">
+      {/* ── Unified Proportional Segmented Bar ── */}
+      <div className="rounded-xl border border-border/60 bg-card/60 p-3.5">
+        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2.5">
+          <span className="font-medium uppercase tracking-wider">Traffic Distribution</span>
+          <span className="font-semibold text-foreground tabular-nums">{calculatedTotal.toLocaleString()} total req</span>
+        </div>
+        <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/80 gap-0.5">
+          {providers.map((p) => {
+            const color = getProviderColor(p.provider, p.color);
+            const percent = calculatedTotal > 0 ? (p.total_requests / calculatedTotal) * 100 : 0;
+            if (percent === 0) return null;
+            return (
+              <div
+                key={p.provider}
+                className="h-full first:rounded-l-full last:rounded-r-full transition-all duration-500 hover:brightness-110"
+                style={{
+                  width: `${percent}%`,
+                  backgroundColor: color,
+                }}
+                title={`${p.display_name}: ${percent.toFixed(1)}% (${p.total_requests} req)`}
+              />
+            );
+          })}
+        </div>
+      </div>
 
-        return (
-          <div key={p.provider} className="group rounded-lg border border-border/50 bg-muted/20 p-3 hover:bg-muted/40 transition-colors">
-            <div className="flex items-center justify-between text-sm mb-2">
+      {/* ── Detailed Provider List ── */}
+      <div className="space-y-2">
+        {providers.map((p) => {
+          const color = getProviderColor(p.provider, p.color);
+          const percent = calculatedTotal > 0 ? (p.total_requests / calculatedTotal) * 100 : 0;
+
+          return (
+            <div
+              key={p.provider}
+              className="flex items-center justify-between rounded-xl border border-border/40 bg-card/40 px-3 py-2.5 text-xs hover:bg-card/70 transition-colors"
+            >
               <div className="flex items-center gap-2.5">
+                <span
+                  className="size-2.5 rounded-full shrink-0 shadow-xs"
+                  style={{ backgroundColor: color }}
+                />
                 <SmallProviderIcon p={p} />
-                <span className="font-semibold text-foreground">{p.display_name}</span>
+                <span className="font-medium text-foreground">{p.display_name}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-md border border-border bg-card px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground">
+
+              <div className="flex items-center gap-4">
+                <span className="font-medium text-muted-foreground tabular-nums">
+                  {percent.toFixed(1)}%
+                </span>
+                <span className="min-w-[50px] text-right font-semibold tabular-nums text-foreground">
                   {p.total_requests.toLocaleString()} req
+                </span>
+                <span className="min-w-[60px] text-right font-mono text-muted-foreground tabular-nums">
+                  ${p.cost_usd.toFixed(4)}
                 </span>
               </div>
             </div>
-
-            {/* Modern sleek progress track */}
-            <div className="h-2 w-full bg-muted/80 rounded-full relative overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500 shadow-sm"
-                style={{
-                  width: `${Math.max(percent, 2)}%`,
-                  backgroundColor: color,
-                }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
-              <span className="font-medium">{percent.toFixed(1)}% of total traffic</span>
-              <span className="font-semibold tabular-nums text-foreground/90">${p.cost_usd.toFixed(4)}</span>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -451,9 +479,12 @@ function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
 
   if (total === 0 && cached === 0) {
     return (
-      <div className="flex h-48 flex-col items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground">
+      <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/10 text-center">
         <Sparkles className="size-6 text-muted-foreground/40 mb-2" />
-        No token data recorded yet.
+        <p className="text-sm font-medium text-foreground">No token data recorded</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Token consumption and cache stats will be graphed here.
+        </p>
       </div>
     );
   }
@@ -464,7 +495,7 @@ function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
   return (
     <div className="flex flex-col justify-between h-full space-y-4 pt-1">
       {/* Top Total Header */}
-      <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+      <div className="rounded-xl border border-border/60 bg-card/60 p-3.5">
         <div className="flex items-baseline justify-between">
           <div>
             <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Total Processed</p>
@@ -479,7 +510,7 @@ function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
         </div>
 
         {/* Visual segmented bar */}
-        <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted/80">
+        <div className="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted/60">
           <div
             className="h-full bg-primary transition-all duration-500"
             style={{ width: `${promptPct}%` }}
@@ -495,7 +526,7 @@ function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
 
       {/* Rows breakdown */}
       <div className="space-y-2.5">
-        <div className="flex items-center justify-between rounded-lg border border-border/40 bg-card/40 p-2.5 text-xs">
+        <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card/40 p-2.5 text-xs">
           <div className="flex items-center gap-2">
             <span className="size-2.5 rounded-full bg-primary" />
             <span className="text-muted-foreground font-medium">Prompt tokens</span>
@@ -506,7 +537,7 @@ function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border border-border/40 bg-card/40 p-2.5 text-xs">
+        <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card/40 p-2.5 text-xs">
           <div className="flex items-center gap-2">
             <span className="size-2.5 rounded-full bg-amber-400" />
             <span className="text-muted-foreground font-medium">Completion tokens</span>
@@ -517,7 +548,7 @@ function TokenBreakdown({ summary }: { summary: UsageInsights["summary"] }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border border-border/40 bg-card/40 p-2.5 text-xs">
+        <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card/40 p-2.5 text-xs">
           <div className="flex items-center gap-2">
             <span className="size-2.5 rounded-full bg-sky-400" />
             <span className="text-muted-foreground font-medium">Cached tokens</span>

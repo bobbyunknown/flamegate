@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Plus, Copy, Check, CheckCircle2, ToggleLeft, ToggleRight, ArrowLeft, ArrowRight, Trash2, Wallet, Wrench, DollarSign, Gauge, Link2, Activity, Ban, ListFilter } from "lucide-react";
+import { KeyRound, Plus, Copy, Check, CheckCircle2, ToggleLeft, ToggleRight, ArrowLeft, ArrowRight, Trash2, Wallet, Wrench, DollarSign, Gauge, Link2, Activity, Ban, ListFilter, RefreshCw } from "lucide-react";
 import { api, type APIKey, type CreatedKey, type Plan } from "../lib/api";
 import { microsToUSD, formatTokens } from "../lib/format";
 import { PageHeader } from "@/components/composite/page-header";
@@ -122,16 +122,20 @@ function KeyRow({
   onSelect,
   onToggle,
   onConfigure,
+  onRotate,
   onRevoke,
   togglePending,
+  rotatePending,
 }: {
   apiKey: APIKey;
   selected: boolean;
   onSelect: () => void;
   onToggle: () => void;
   onConfigure: () => void;
+  onRotate: () => void;
   onRevoke: () => void;
   togglePending: boolean;
+  rotatePending: boolean;
 }) {
   const portalUrl = `${window.location.origin}/portal?id=${apiKey.id}`;
   const modelCount = apiKey.allowed_models?.length ?? 0;
@@ -182,6 +186,15 @@ function KeyRow({
       </div>
 
       <div className="flex items-center gap-1 shrink-0 justify-end pl-7 sm:pl-0">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onRotate}
+          disabled={rotatePending}
+          title="Rotate key (generate new secret)"
+        >
+          <RefreshCw className={cn("h-4 w-4 text-muted-foreground hover:text-foreground", rotatePending && "animate-spin")} />
+        </Button>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -368,6 +381,23 @@ export function KeysPage() {
     onError: (e: Error) => toast.error("Key update failed", e.message),
   });
 
+  // Rotate key state
+  const [rotateConfirmKey, setRotateConfirmKey] = useState<APIKey | null>(null);
+  const [rotatedKey, setRotatedKey] = useState<CreatedKey | null>(null);
+  const [rotatedCopied, setRotatedCopied] = useState(false);
+
+  const rotate = useMutation({
+    mutationFn: (id: string) => api.rotateKey(id),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["keys"] });
+      setRotateConfirmKey(null);
+      setRotatedKey(data);
+      setRotatedCopied(false);
+      toast.success("Key rotated", `New secret generated for "${data.name}". Copy it now.`);
+    },
+    onError: (e: Error) => toast.error("Key rotation failed", e.message),
+  });
+
   return (
     <>
       <PageHeader
@@ -523,14 +553,67 @@ export function KeysPage() {
                   onSelect={() => toggleSelect(k.id)}
                   onToggle={() => toggleDisabled.mutate({ id: k.id, disabled: !k.disabled })}
                   onConfigure={() => navigate({ to: `/keys/${k.id}` })}
+                  onRotate={() => setRotateConfirmKey(k)}
                   onRevoke={() => remove.mutate(k.id)}
                   togglePending={toggleDisabled.isPending}
+                  rotatePending={rotate.isPending && (rotate.variables as any) === k.id}
                 />
               ))}
             </div>
           </div>
         )}
       </Card>
+
+      {/* ── Rotate confirmation modal ── */}
+      <Modal
+        open={!!rotateConfirmKey}
+        onClose={() => setRotateConfirmKey(null)}
+        maxWidth="sm:max-w-md"
+        title="Rotate API key"
+        subtitle={`Generate a new secret for "${rotateConfirmKey?.name}"`}
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Rotating this key will <strong className="text-foreground">immediately invalidate the current secret</strong>. Any CLI tools, scripts, or apps using the old key will fail to authenticate until updated with the new key.
+          </p>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setRotateConfirmKey(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={rotate.isPending}
+              onClick={() => {
+                if (rotateConfirmKey) {
+                  rotate.mutate(rotateConfirmKey.id);
+                }
+              }}
+            >
+              {rotate.isPending && <Spinner className="mr-1.5 size-3.5" />}
+              Rotate key
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Rotated key success modal ── */}
+      <Modal
+        open={!!rotatedKey}
+        onClose={() => setRotatedKey(null)}
+        maxWidth="sm:max-w-xl"
+        title="Key rotated successfully"
+        subtitle="Copy your new secret key now. It will not be shown again."
+      >
+        {rotatedKey && (
+          <StepSuccess
+            created={rotatedKey}
+            copied={rotatedCopied}
+            setCopied={setRotatedCopied}
+            onClose={() => setRotatedKey(null)}
+          />
+        )}
+      </Modal>
     </>
   );
 }

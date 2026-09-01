@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap");
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 @import "tailwindcss";
 
 /*
@@ -115,9 +116,10 @@
   --color-brand-codebuddy: #0052D9;
   --color-brand-gemini: #4285F4;
 
-  /* ── Typography. */
-  --font-sans: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* ── Typography (Neobrutalism Terminal Geist Mono - Fontsource Local). */
+  --font-sans: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* ── Radius. */
   --radius-card: 0.75rem;

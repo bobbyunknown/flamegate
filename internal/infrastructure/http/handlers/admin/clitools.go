@@ -2,7 +2,9 @@ package admin
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -14,7 +16,7 @@ import (
 // fields drive the installed/configured badges.
 func (s *Handler) HandleCLITools(w http.ResponseWriter, r *http.Request) {
 	statuses := s.cliTools.DetectAll(s.cliToolHome)
-	baseURL := s.publicBaseURL(r)
+	baseURL := s.publicProxyBaseURL(r)
 	model := r.URL.Query().Get("model")
 
 	// Build a lookup so we can merge snippet metadata with live status.
@@ -115,6 +117,37 @@ func (s *Handler) publicBaseURL(r *http.Request) string {
 		host = s.cfg.Addr()
 	}
 	return fmt.Sprintf("%s://%s", scheme, host)
+}
+
+// publicProxyBaseURL derives the externally usable base URL for the LLM /v1 proxy.
+// If a dedicated proxy port is configured, it uses that port.
+func (s *Handler) publicProxyBaseURL(r *http.Request) string {
+	scheme := "http"
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		scheme = proto
+	} else if r.TLS != nil {
+		scheme = "https"
+	}
+	host := r.Host
+	if fwd := r.Header.Get("X-Forwarded-Host"); fwd != "" {
+		host = fwd
+	}
+	if host == "" {
+		host = s.cfg.Addr()
+	}
+
+	hostname, _, err := net.SplitHostPort(host)
+	if err != nil {
+		hostname = host
+	}
+
+	proxyPort := s.cfg.Server.Port
+	if s.cfg.Server.ProxyPort > 0 {
+		proxyPort = s.cfg.Server.ProxyPort
+	}
+
+	targetHost := net.JoinHostPort(hostname, strconv.Itoa(proxyPort))
+	return fmt.Sprintf("%s://%s", scheme, targetHost)
 }
 
 // mountCLITools registers the CLI tool auto-config endpoints.
