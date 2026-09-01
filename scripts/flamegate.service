@@ -1,0 +1,16 @@
+[Unit]
+Description=FlameGate LLM Proxy & Router Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/flamegate
+Restart=always
+RestartSec=5s
+Environment="FLAMEGATE_LOG__LEVEL=info"
+
+# Security sandboxing
+LimitNOFILE=65535
+
+[Install]
+WantedBy=default.target

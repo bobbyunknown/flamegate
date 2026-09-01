@@ -195,6 +195,7 @@ Usage:
 Commands:
   status                   Check whether local server is running and print its URL
   bootstrap                Create an initial API key and print it once
+  service                  Manage background service (install, start, stop, restart, status, uninstall)
   ext                      Manage WASM extensions (install, list, enable, disable, uninstall)
   version                  Print version and commit metadata
   help                     Show help message
@@ -204,6 +205,30 @@ Flags:
   -k, --key-name <name>    (bootstrap) Name for the created API key (default: default)
   -bootstrap               Create an initial API key and exit
   -healthcheck             Perform local health check and exit with status code
+```
+
+---
+
+## Background Service Daemon
+
+FlameGate includes native support to run automatically in the background across macOS, Linux, and Windows:
+
+```bash
+# 1. Install FlameGate as an OS background service (Launchd / Systemd)
+flamegate service install
+
+# 2. Start the service
+flamegate service start
+
+# 3. Check service status (RUNNING / STOPPED)
+flamegate service status
+
+# 4. Stop or restart
+flamegate service restart
+flamegate service stop
+
+# 5. Uninstall service
+flamegate service uninstall
 ```
 
 ---

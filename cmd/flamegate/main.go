@@ -70,6 +70,8 @@ func run(args []string) error {
 			return cmdStatus(args[1:])
 		case "bootstrap":
 			return cmdBootstrap(args[1:])
+		case "service":
+			return cmdService(args[1:])
 		case "ext":
 			return cmdExt(args[1:])
 		case "start":
@@ -91,6 +93,7 @@ Usage:
 Commands:
   status       Check whether a local server is running and print its URL
   bootstrap    Create an initial API key and print it once
+  service      Manage background daemon (install, start, stop, restart, status, uninstall)
   ext          Manage WASM extensions (install, list, enable, disable)
   version      Print version and exit
   help         Show this help
