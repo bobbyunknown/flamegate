@@ -105,15 +105,7 @@ windows-arm64: build-windows-arm64
 # ------------------------------------------------------------------------------
 
 releases: $(addprefix build-, $(PLATFORMS))
-	@echo "--> Packaging release archives..."
-	@cd $(BINDIR) && for file in $(NAME)-*; do \
-		case "$$file" in \
-			*.gz) ;; \
-			*) \
-				gzip -f -c "$$file" > "$$file-$(VERSION).gz" && rm "$$file" ;; \
-		esac; \
-	done
-	@echo "--> Release archives ready in $(BINDIR)/"
+	@echo "--> Release binaries ready in $(BINDIR)/"
 
 releases-ui: ui-sync releases
 

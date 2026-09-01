@@ -129,14 +129,12 @@ jobs:
           LDFLAGS="-X 'main.Version=${VERSION}' -X 'main.Commit=${SHORT_SHA}' -X 'main.BuildTime=${BUILDTIME}' -w -s -buildid="
           
           if [ "${{ matrix.jobs.goos }}" = "windows" ]; then
-            go build -trimpath -ldflags "${LDFLAGS}" -o "${OUTPUT_NAME}.exe" ./cmd/flamegate
-            gzip -c "${OUTPUT_NAME}.exe" > "${OUTPUT_NAME}-${VERSION}.gz"
-            rm "${OUTPUT_NAME}.exe"
+            BIN_NAME="${OUTPUT_NAME}-${VERSION}.exe"
+            go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN_NAME}" ./cmd/flamegate
           else
-            go build -trimpath -ldflags "${LDFLAGS}" -o "${OUTPUT_NAME}" ./cmd/flamegate
-            chmod +x "${OUTPUT_NAME}"
-            gzip -c "${OUTPUT_NAME}" > "${OUTPUT_NAME}-${VERSION}.gz"
-            rm "${OUTPUT_NAME}"
+            BIN_NAME="${OUTPUT_NAME}-${VERSION}"
+            go build -trimpath -ldflags "${LDFLAGS}" -o "${BIN_NAME}" ./cmd/flamegate
+            chmod +x "${BIN_NAME}"
           fi
 
       - name: Upload Artifact
@@ -144,7 +142,7 @@ jobs:
         with:
           name: "binary-${{ matrix.jobs.output }}"
           path: |
-            flamegate-*.gz
+            flamegate-*
           retention-days: 7
 
   Upload-Nightly:
@@ -164,7 +162,7 @@ jobs:
       - name: Generate Checksums
         run: |
           cd bin/
-          find . -maxdepth 1 -type f -name "flamegate-*.gz" | sort | xargs sha256sum > checksums.txt
+          find . -maxdepth 1 -type f -name "flamegate-*" | sort | xargs sha256sum > checksums.txt
           cat checksums.txt
         shell: bash
 
@@ -174,7 +172,7 @@ jobs:
           tag_name: "nightly"
           prerelease: true
           files: |
-            bin/flamegate-*.gz
+            bin/flamegate-*
             bin/checksums.txt
           generate_release_notes: true
           body: |
@@ -222,7 +220,7 @@ jobs:
       - name: Generate Checksums
         run: |
           cd bin/
-          find . -maxdepth 1 -type f -name "flamegate-*.gz" | sort | xargs sha256sum > checksums.txt
+          find . -maxdepth 1 -type f -name "flamegate-*" | sort | xargs sha256sum > checksums.txt
           cat checksums.txt
         shell: bash
 
@@ -231,7 +229,7 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           files: |
-            bin/flamegate-*.gz
+            bin/flamegate-*
             bin/checksums.txt
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           generate_release_notes: true
