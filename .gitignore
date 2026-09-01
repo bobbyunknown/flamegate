@@ -2,7 +2,7 @@
 /flamegate
 /flamegate.exe
 bin/
-dist/
+/dist/
 fg-test
 *.test
 *.out
@@ -19,6 +19,8 @@ frontend/.vite/
 frontend/coverage/
 *.tsbuildinfo
 *.local
+internal/infrastructure/http/static/dist/*
+!internal/infrastructure/http/static/dist/.gitkeep
 
 # Database & Runtime Data
 *.db

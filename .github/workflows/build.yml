@@ -29,7 +29,32 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          bun install
+          bun run build
+
+      - name: Upload frontend assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-assets
+          path: frontend/dist/
+          retention-days: 1
+
   build:
+    needs: [frontend]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -55,21 +80,16 @@ jobs:
           go-version: '1.26'
           check-latest: true
 
-      - name: Set up Bun (for frontend build)
-        if: ${{ matrix.jobs.test == 'test' }}
-        uses: oven-sh/setup-bun@v2
+      - name: Download frontend assets
+        uses: actions/download-artifact@v4
         with:
-          bun-version: latest
+          name: frontend-assets
+          path: internal/infrastructure/http/static/dist
 
-      - name: Build frontend assets
-        if: ${{ matrix.jobs.test == 'test' }}
+      - name: Ensure embed directory exists
         run: |
-          cd frontend
-          bun install
-          bun run build
-          mkdir -p ../internal/infrastructure/http/static/dist
-          cp -r dist/* ../internal/infrastructure/http/static/dist/
-          touch ../internal/infrastructure/http/static/dist/.gitkeep
+          mkdir -p internal/infrastructure/http/static/dist
+          touch internal/infrastructure/http/static/dist/.gitkeep
 
       - name: Set Build Variables
         id: vars
