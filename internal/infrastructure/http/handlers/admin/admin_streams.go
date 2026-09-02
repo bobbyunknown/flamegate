@@ -10,6 +10,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	core "github.com/bobbyunknown/flamegate/internal/domain"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/dispatch"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/pipeline"
 )
@@ -76,9 +78,28 @@ func (s *Handler) adminModelChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fullModel := model
-	if provider != "" && !strings.HasPrefix(model, provider+"/") {
-		fullModel = provider + "/" + model
+	targetProvider := provider
+	targetModel := model
+	if targetProvider != "" {
+		if spec, ok := connectors.SpecByAlias(targetProvider); ok {
+			targetProvider = spec.ID
+		}
+		if strings.HasPrefix(targetModel, targetProvider+"/") {
+			targetModel = strings.TrimPrefix(targetModel, targetProvider+"/")
+		} else if strings.HasPrefix(targetModel, provider+"/") {
+			targetModel = strings.TrimPrefix(targetModel, provider+"/")
+		}
+	} else if p, m, ok := strings.Cut(model, "/"); ok && p != "" && m != "" {
+		if spec, ok := connectors.SpecByAlias(p); ok {
+			p = spec.ID
+		}
+		targetProvider = p
+		targetModel = m
+	}
+
+	fullModel := targetModel
+	if targetProvider != "" && !strings.HasPrefix(targetModel, targetProvider+"/") {
+		fullModel = targetProvider + "/" + targetModel
 	}
 
 	var msgs []core.Message
@@ -118,6 +139,16 @@ func (s *Handler) adminModelChatStream(w http.ResponseWriter, r *http.Request) {
 		Temperature: body.Temperature,
 		Metadata: core.RequestMetadata{
 			TenantID: adminTenant,
+			Provider: targetProvider,
+		},
+	}
+
+	opts := pipeline.Options{
+		Targets: []dispatch.Target{
+			{
+				Provider: targetProvider,
+				Model:    targetModel,
+			},
 		},
 	}
 
@@ -144,7 +175,7 @@ func (s *Handler) adminModelChatStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	streamRes, err := s.pipeline.Stream(r.Context(), chatReq, pipeline.Options{})
+	streamRes, err := s.pipeline.Stream(r.Context(), chatReq, opts)
 	if err != nil {
 		sendSSE("error", map[string]any{"error": err.Error(), "latency_ms": time.Since(start).Milliseconds()})
 		return

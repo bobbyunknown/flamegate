@@ -16,6 +16,7 @@ import (
 	core "github.com/bobbyunknown/flamegate/internal/domain"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/budget"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/dispatch"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/http/openapi"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/pipeline"
@@ -2316,9 +2317,28 @@ func (s *Handler) HumaTestModel(ctx context.Context, input *TestModelInput) (*Te
 		return nil, huma.Error400BadRequest("model is required")
 	}
 
-	fullModel := model
-	if provider != "" && !strings.HasPrefix(model, provider+"/") {
-		fullModel = provider + "/" + model
+	targetProvider := provider
+	targetModel := model
+	if targetProvider != "" {
+		if spec, ok := connectors.SpecByAlias(targetProvider); ok {
+			targetProvider = spec.ID
+		}
+		if strings.HasPrefix(targetModel, targetProvider+"/") {
+			targetModel = strings.TrimPrefix(targetModel, targetProvider+"/")
+		} else if strings.HasPrefix(targetModel, provider+"/") {
+			targetModel = strings.TrimPrefix(targetModel, provider+"/")
+		}
+	} else if p, m, ok := strings.Cut(model, "/"); ok && p != "" && m != "" {
+		if spec, ok := connectors.SpecByAlias(p); ok {
+			p = spec.ID
+		}
+		targetProvider = p
+		targetModel = m
+	}
+
+	fullModel := targetModel
+	if targetProvider != "" && !strings.HasPrefix(targetModel, targetProvider+"/") {
+		fullModel = targetProvider + "/" + targetModel
 	}
 
 	testCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -2338,11 +2358,21 @@ func (s *Handler) HumaTestModel(ctx context.Context, input *TestModelInput) (*Te
 		MaxTokens: &testMaxTokens,
 		Metadata: core.RequestMetadata{
 			TenantID: adminTenant,
+			Provider: targetProvider,
+		},
+	}
+
+	opts := pipeline.Options{
+		Targets: []dispatch.Target{
+			{
+				Provider: targetProvider,
+				Model:    targetModel,
+			},
 		},
 	}
 
 	start := time.Now()
-	res, err := s.pipeline.Chat(testCtx, chatReq, pipeline.Options{})
+	res, err := s.pipeline.Chat(testCtx, chatReq, opts)
 	latency := time.Since(start).Milliseconds()
 
 	if err != nil {
@@ -2410,9 +2440,28 @@ func (s *Handler) HumaTestChat(ctx context.Context, input *TestChatInput) (*Test
 		return nil, huma.Error400BadRequest("model is required")
 	}
 
-	fullModel := model
-	if provider != "" && !strings.HasPrefix(model, provider+"/") {
-		fullModel = provider + "/" + model
+	targetProvider := provider
+	targetModel := model
+	if targetProvider != "" {
+		if spec, ok := connectors.SpecByAlias(targetProvider); ok {
+			targetProvider = spec.ID
+		}
+		if strings.HasPrefix(targetModel, targetProvider+"/") {
+			targetModel = strings.TrimPrefix(targetModel, targetProvider+"/")
+		} else if strings.HasPrefix(targetModel, provider+"/") {
+			targetModel = strings.TrimPrefix(targetModel, provider+"/")
+		}
+	} else if p, m, ok := strings.Cut(model, "/"); ok && p != "" && m != "" {
+		if spec, ok := connectors.SpecByAlias(p); ok {
+			p = spec.ID
+		}
+		targetProvider = p
+		targetModel = m
+	}
+
+	fullModel := targetModel
+	if targetProvider != "" && !strings.HasPrefix(targetModel, targetProvider+"/") {
+		fullModel = targetProvider + "/" + targetModel
 	}
 
 	var msgs []core.Message
@@ -2451,6 +2500,16 @@ func (s *Handler) HumaTestChat(ctx context.Context, input *TestChatInput) (*Test
 		Temperature: input.Body.Temperature,
 		Metadata: core.RequestMetadata{
 			TenantID: adminTenant,
+			Provider: targetProvider,
+		},
+	}
+
+	opts := pipeline.Options{
+		Targets: []dispatch.Target{
+			{
+				Provider: targetProvider,
+				Model:    targetModel,
+			},
 		},
 	}
 
@@ -2458,7 +2517,7 @@ func (s *Handler) HumaTestChat(ctx context.Context, input *TestChatInput) (*Test
 	defer cancel()
 
 	start := time.Now()
-	res, err := s.pipeline.Chat(testCtx, chatReq, pipeline.Options{})
+	res, err := s.pipeline.Chat(testCtx, chatReq, opts)
 	latency := time.Since(start).Milliseconds()
 
 	if err != nil {
