@@ -10,6 +10,7 @@ export type { StoreExtension } from "./extensions";
 // Re-export standalone functions (for direct use)
 export { connectUsageStream, connectGuardrailLogStream } from "./sse";
 export { fetchPortalBranding, fetchKeyUsage, fetchKeyUsageById } from "./portal";
+export { streamChat } from "./models";
 
 // Import all domain functions
 import { authStatus, login, logout, changePassword, completeOnboarding } from "./auth";
@@ -46,7 +47,7 @@ import {
   tunnelStatus, tunnelEnable, tunnelDisable,
   tailscaleCheck, tailscaleEnable, tailscaleDisable,
 } from "./tunnel";
-import { listDisabledModels, disableModels, enableModels } from "./models";
+import { listDisabledModels, disableModels, enableModels, testModel, testChat, streamChat } from "./models";
 import {
   updateCheck, exportDatabase, importDatabase,
   sqliteStatus, backupSQLite, restoreSQLite,
@@ -130,7 +131,7 @@ export const api = {
   tailscaleCheck, tailscaleEnable, tailscaleDisable,
 
   // Models
-  listDisabledModels, disableModels, enableModels,
+  listDisabledModels, disableModels, enableModels, testModel, testChat, streamChat,
 
   // Database / Updates
   updateCheck, exportDatabase, importDatabase,

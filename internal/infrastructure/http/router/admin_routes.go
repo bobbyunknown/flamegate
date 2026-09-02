@@ -154,6 +154,14 @@ func (s *Server) registerAdminAPI(api huma.API) {
 	enableModelsOp.DefaultStatus = 200
 	huma.Register(api, enableModelsOp, s.adminHandler.HumaEnableModels)
 
+	testModelOp := adminOp("testModel", "POST", "/models/test", "Test model connectivity and latency", "Models", authMw)
+	testModelOp.DefaultStatus = 200
+	huma.Register(api, testModelOp, s.adminHandler.HumaTestModel)
+
+	testChatOp := adminOp("testChat", "POST", "/models/chat", "Interactive chat test for admin playground", "Models", authMw)
+	testChatOp.DefaultStatus = 200
+	huma.Register(api, testChatOp, s.adminHandler.HumaTestChat)
+
 	huma.Register(api, adminOp("list-guardrails", "GET", "/guardrails", "List guardrails", "Guardrails", authMw), s.adminHandler.HumaListGuardrails)
 	huma.Register(api, adminOp("create-guardrail", "POST", "/guardrails", "Create guardrail", "Guardrails", authMw), s.adminHandler.HumaCreateGuardrail)
 	huma.Register(api, adminOp("get-guardrail", "GET", "/guardrails/{id}", "Get guardrail", "Guardrails", authMw), s.adminHandler.HumaGetGuardrail)

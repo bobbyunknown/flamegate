@@ -44,6 +44,35 @@ export interface ProviderModel {
   discovered?: boolean;
   tier?: string;
   tags?: string[];
+  context_window?: number;
+  max_output_tokens?: number;
+  input_modalities?: string[];
+  output_modalities?: string[];
+  vision?: boolean;
+  reasoning?: boolean;
+  tools?: boolean;
+}
+
+export interface TestModelResult {
+  status: "ok" | "error";
+  latency_ms: number;
+  response_text?: string;
+  error?: string;
+}
+
+export interface TestChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface TestChatResult {
+  status: "ok" | "error";
+  response_text?: string;
+  latency_ms: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  model?: string;
+  error?: string;
 }
 
 // CustomProvider is a user-defined provider instance (OpenAI- or Anthropic-

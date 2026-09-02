@@ -104,44 +104,58 @@ export function CustomModelsSection({ provider }: { provider: Provider }) {
       ) : (
         <div className="divide-y divide-border border-t border-border">
           {models.map((m) => (
-            <div key={m.db_id} className="flex items-center gap-3 px-6 py-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-100 text-accent-700 dark:bg-accent-800/40 dark:text-accent-200">
+            <div key={m.db_id} className="flex items-center gap-3 px-6 py-3 hover:bg-muted/30 transition-colors">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary border border-primary/20 shrink-0">
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <code className="truncate font-mono text-xs text-foreground" title={`${provider.alias || provider.id}/${m.id}`}>
+                  <code className="truncate font-mono text-xs text-foreground font-semibold" title={`${provider.alias || provider.id}/${m.id}`}>
                     {provider.alias || provider.id}/{m.id}
                   </code>
-                  <Badge variant="default">custom</Badge>
-                  {m.kind && m.kind !== "llm" && <Badge variant="secondary">{m.kind}</Badge>}
+                  <Badge variant="outline" className="text-[9px] uppercase px-1.5 py-0 font-bold border border-primary/30 bg-primary/10 text-primary">
+                    Custom
+                  </Badge>
+                  {m.kind && m.kind !== "llm" && <Badge variant="secondary" className="text-[9px] uppercase">{m.kind}</Badge>}
                 </div>
-                <div className="mt-0.5 flex items-center gap-3 text-[10px] text-muted-foreground">
+                <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground">
                   {m.name && m.name !== m.id && <span className="truncate">{m.name}</span>}
-                  {m.context_window > 0 && <span>{m.context_window.toLocaleString()} ctx</span>}
+                  {m.context_window > 0 && (
+                    <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-muted">
+                      {m.context_window >= 1000000
+                        ? `${(m.context_window / 1000000).toFixed(0)}M ctx`
+                        : `${Math.round(m.context_window / 1000)}K ctx`}
+                    </span>
+                  )}
                   {(m.input_per_m > 0 || m.output_per_m > 0) && (
-                    <span>
+                    <span className="font-mono text-[10px]">
                       ${m.input_per_m}/${m.output_per_m} per M
                     </span>
                   )}
                 </div>
               </div>
-              <button
-                className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-ink-100 hover:text-foreground dark:hover:bg-ink-800"
-                title="Edit model"
-                onClick={() => openEdit(m)}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-              <button
-                className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-[color:var(--color-danger)]/10 hover:text-[color:var(--color-danger)]"
-                title="Remove model"
-                onClick={() => {
-                  if (confirm(`Remove custom model "${m.id}"?`)) deleteMut.mutate(m.db_id);
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  title="Edit model"
+                  onClick={() => openEdit(m)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                  title="Remove model"
+                  onClick={() => {
+                    if (confirm(`Remove custom model "${m.id}"?`)) deleteMut.mutate(m.db_id);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>

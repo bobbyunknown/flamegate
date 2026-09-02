@@ -4,8 +4,8 @@ import { CardHeader } from "@/components/composite/card-header";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useParams, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2, Plug, X, Zap, ArrowUp, ArrowDown, CheckCircle, ToggleLeft, ToggleRight, Search, Route, AlertCircle, AlertTriangle, RefreshCw, Globe, Copy, Check, Upload, Loader2, XCircle, Layers, FileText } from "lucide-react";
-import { api, type Provider, type Account, type ProxyPool, type UpstreamQuota, type ProviderRoutingSettings, type BulkAccountResult, type QuotaAccount } from "../lib/api";
+import { ArrowLeft, Plus, Trash2, Plug, X, Zap, ArrowUp, ArrowDown, CheckCircle, ToggleLeft, ToggleRight, Search, Route, AlertCircle, AlertTriangle, RefreshCw, Globe, Copy, Check, Upload, Loader2, XCircle, Layers, FileText, MessageSquare, Brain, Wrench, Eye, Mic } from "lucide-react";
+import { api, type Provider, type Account, type ProxyPool, type UpstreamQuota, type ProviderRoutingSettings, type BulkAccountResult, type QuotaAccount, type ProviderModel } from "../lib/api";
 import { KiroConnectModal } from "../components/KiroConnectModal";
 import { QoderConnectModal } from "../components/QoderConnectModal";
 import { KilocodeConnectModal } from "../components/KilocodeConnectModal";
@@ -14,6 +14,7 @@ import { CursorConnectModal } from "../components/CursorConnectModal";
 import { CommandCodeConnectModal } from "../components/CommandCodeConnectModal";
 import { ExtensionOAuthModal } from "../components/ExtensionOAuthModal";
 import { CustomModelsSection } from "../components/CustomModelsSection";
+import { ModelChatModal } from "../components/ModelChatModal";
 import { useToast } from "../components/Toast";
 import { parseKeys } from "../lib/bulk";
 
@@ -172,6 +173,80 @@ export function ProviderDetailPage() {
     (modelPage - 1) * MODELS_PER_PAGE, 
     modelPage * MODELS_PER_PAGE
   );
+
+  // Model testing & playground chat state
+  const [chatModel, setChatModel] = useState<ProviderModel | null>(null);
+  const [testingModelId, setTestingModelId] = useState<string | null>(null);
+  const [modelTestResults, setModelTestResults] = useState<Record<string, { status: "ok" | "error"; latency_ms: number; error?: string }>>({});
+  const [isTestingAll, setIsTestingAll] = useState(false);
+
+  const testSingleModel = async (modelItem: ProviderModel) => {
+    if (!id || testingModelId) return;
+    setTestingModelId(modelItem.id);
+    try {
+      const res = await api.testModel({ provider: provider?.alias || id, model: modelItem.id });
+      setModelTestResults((prev) => ({
+        ...prev,
+        [modelItem.id]: {
+          status: res.status,
+          latency_ms: res.latency_ms,
+          error: res.error,
+        },
+      }));
+      if (res.status === "ok") {
+        toast.success(`Model ${modelItem.name || modelItem.id} OK`, `Latency: ${res.latency_ms}ms · Response: "${res.response_text?.slice(0, 50)}..."`);
+      } else {
+        toast.error(`Model test failed: ${modelItem.id}`, res.error || "Unknown error");
+      }
+    } catch (e: any) {
+      setModelTestResults((prev) => ({
+        ...prev,
+        [modelItem.id]: {
+          status: "error",
+          latency_ms: 0,
+          error: e.message || "Request failed",
+        },
+      }));
+      toast.error(`Test failed: ${modelItem.id}`, e.message);
+    } finally {
+      setTestingModelId(null);
+    }
+  };
+
+  const testAllFilteredModels = async () => {
+    if (!id || isTestingAll || filteredModels.length === 0) return;
+    setIsTestingAll(true);
+    let passed = 0;
+    let failed = 0;
+
+    for (const m of filteredModels.slice(0, 15)) {
+      try {
+        const res = await api.testModel({ provider: provider?.alias || id, model: m.id });
+        setModelTestResults((prev) => ({
+          ...prev,
+          [m.id]: {
+            status: res.status,
+            latency_ms: res.latency_ms,
+            error: res.error,
+          },
+        }));
+        if (res.status === "ok") passed++;
+        else failed++;
+      } catch (e: any) {
+        setModelTestResults((prev) => ({
+          ...prev,
+          [m.id]: {
+            status: "error",
+            latency_ms: 0,
+            error: e.message,
+          },
+        }));
+        failed++;
+      }
+    }
+    setIsTestingAll(false);
+    toast.info("Model tests finished", `Passed: ${passed} · Failed: ${failed}`);
+  };
 
   // Set default region when provider loads.
   useEffect(() => {
@@ -696,15 +771,34 @@ export function ProviderDetailPage() {
                   : "No models loaded yet. Click Sync Models to populate models from extension."
               }
               action={
-                <Button
-                  variant="ghost"
-                  className="h-8 px-3 text-xs gap-1.5"
-                  onClick={() => syncModelsMut.mutate()}
-                  disabled={syncModelsMut.isPending}
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${syncModelsMut.isPending ? "animate-spin" : ""}`} />
-                  {syncModelsMut.isPending ? "Syncing..." : "Sync Models"}
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  {filteredModels.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={testAllFilteredModels}
+                      disabled={isTestingAll}
+                      className="h-8 px-2.5 text-xs gap-1 text-muted-foreground hover:text-amber-500 hover:border-amber-500/40"
+                      title="Test latency of models currently visible in this filter"
+                    >
+                      {isTestingAll ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />
+                      ) : (
+                        <Zap className="h-3.5 w-3.5 text-amber-500" />
+                      )}
+                      <span>{isTestingAll ? "Testing..." : "Test Visible"}</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    className="h-8 px-3 text-xs gap-1.5"
+                    onClick={() => syncModelsMut.mutate()}
+                    disabled={syncModelsMut.isPending}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${syncModelsMut.isPending ? "animate-spin" : ""}`} />
+                    {syncModelsMut.isPending ? "Syncing..." : "Sync Models"}
+                  </Button>
+                </div>
               }
             />
             {allModels.length === 0 ? (
@@ -875,6 +969,10 @@ export function ProviderDetailPage() {
                     provider={provider}
                     disabled={disabledModelIds.has(m.id)}
                     selected={selectedModelIds.has(m.id)}
+                    testResult={modelTestResults[m.id]}
+                    isTesting={testingModelId === m.id}
+                    onTest={() => testSingleModel(m)}
+                    onOpenChat={() => setChatModel(m)}
                     onToggleSelect={() => toggleModelSelection(m.id)}
                     onToggleDisable={() => {
                       if (disabledModelIds.has(m.id)) {
@@ -921,6 +1019,15 @@ export function ProviderDetailPage() {
         {/* User-registered custom models (separate from the catalog list). */}
         <CustomModelsSection provider={provider} />
       </div>
+
+      {chatModel && provider && (
+        <ModelChatModal
+          open={true}
+          provider={provider}
+          model={chatModel}
+          onClose={() => setChatModel(null)}
+        />
+      )}
 
       {extensionOAuthOpen && (
         <ExtensionOAuthModal
@@ -1972,30 +2079,85 @@ function AddApiKeyModal({
 // ---- Account quota card -----------------------------------------------------
 
 
-// ModelCell renders a single model in a structural hairline grid.
+// ModelCell renders an info-rich model card with specs, modalities, quick test, and chat playground.
 function ModelCell({
   model,
   provider,
   disabled,
   selected,
+  testResult,
+  isTesting,
+  onTest,
+  onOpenChat,
   onToggleSelect,
   onToggleDisable,
   onDelete,
 }: {
-  model: { id: string; name: string; kind: string };
+  model: ProviderModel;
   provider: Provider;
   disabled?: boolean;
   selected?: boolean;
+  testResult?: { status: "ok" | "error"; latency_ms: number; error?: string };
+  isTesting?: boolean;
+  onTest?: () => void;
+  onOpenChat?: () => void;
   onToggleSelect?: () => void;
   onToggleDisable?: () => void;
   onDelete?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const fullModel = `${provider.alias || provider.id}/${model.id}`;
+
   const isFree =
+    model.tier?.toLowerCase() === "free" ||
+    model.tags?.includes("free") ||
     model.id.toLowerCase().includes("free") ||
     (model.name && model.name.toLowerCase().includes("free")) ||
     model.id.endsWith(":free");
+
+  const isPass =
+    model.tier?.toLowerCase() === "pass" ||
+    model.tags?.includes("pass") ||
+    model.id.toLowerCase().includes("pass");
+
+  const isFrontier =
+    model.tier?.toLowerCase() === "frontier" ||
+    model.tags?.includes("frontier") ||
+    model.id.toLowerCase().includes("frontier");
+
+  const isFlash =
+    model.tier?.toLowerCase() === "flash" ||
+    model.tags?.includes("flash") ||
+    model.id.toLowerCase().includes("flash");
+
+  const isPro =
+    model.tier?.toLowerCase() === "pro" ||
+    model.tags?.includes("pro") ||
+    model.id.toLowerCase().includes("pro");
+
+  const hasVision =
+    model.vision ||
+    model.input_modalities?.includes("image") ||
+    model.tags?.includes("vision") ||
+    model.tags?.includes("image");
+
+  const hasReasoning =
+    model.reasoning ||
+    model.tags?.includes("thinking") ||
+    model.tags?.includes("reasoning");
+
+  const hasTools =
+    model.tools ||
+    model.tags?.includes("agent") ||
+    model.tags?.includes("tools");
+
+  const hasAudio =
+    model.input_modalities?.includes("audio") ||
+    model.tags?.includes("audio");
+
+  const hasPDF =
+    model.input_modalities?.includes("pdf") ||
+    model.tags?.includes("pdf");
 
   const handleCopy = () => {
     navigator.clipboard.writeText(fullModel);
@@ -2003,73 +2165,235 @@ function ModelCell({
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const tierBadge = isFree ? (
+    <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+      Free
+    </span>
+  ) : isPass ? (
+    <span className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 border border-purple-500/30">
+      Pass
+    </span>
+  ) : isFrontier ? (
+    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 border border-amber-500/30">
+      Frontier
+    </span>
+  ) : isPro ? (
+    <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+      Pro
+    </span>
+  ) : isFlash ? (
+    <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 border border-cyan-500/30">
+      Flash
+    </span>
+  ) : null;
+
   return (
-    <div className={`group relative flex flex-col justify-between p-4 transition-all ${disabled ? "bg-muted" : "bg-popover hover:bg-muted"} ${selected ? "ring-1 ring-inset ring-primary-container/60" : ""}`}>
-      <div className="mb-3 flex items-start justify-between">
-        <div className="flex items-center gap-2">
+    <div
+      className={`group relative flex flex-col justify-between p-4 transition-all ${
+        disabled ? "bg-muted/40 opacity-75" : "bg-card hover:bg-muted/40"
+      } ${selected ? "ring-1 ring-inset ring-primary" : ""}`}
+    >
+      {/* Top Bar: Select, Dot, Tier, Action Buttons */}
+      <div className="mb-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {onToggleSelect && (
             <input
               type="checkbox"
-              className="h-3.5 w-3.5 rounded border border-border bg-background accent-[var(--color-primary-container)]"
+              className="h-3.5 w-3.5 rounded border border-border bg-background accent-primary cursor-pointer"
               checked={!!selected}
               onChange={onToggleSelect}
               title="Select model"
             />
           )}
-          <div className={`h-1.5 w-1.5 rounded-full ${disabled ? "bg-ink-400 dark:bg-ink-600" : "bg-[var(--color-primary-container)] shadow-[0_0_8px_var(--color-primary-container)]"}`} />
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {model.kind || "Model"}
-          </span>
-          {isFree && (
-            <span className="rounded bg-emerald-500/15 px-1 py-0.2 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-              Free
+          <div
+            className={`h-1.5 w-1.5 rounded-full ${
+              disabled
+                ? "bg-muted-foreground/40"
+                : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+            }`}
+          />
+          {tierBadge}
+          {model.kind && model.kind !== "llm" && (
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground border border-border">
+              {model.kind}
             </span>
           )}
         </div>
+
+        {/* Action Buttons: Quick Test, Chat Playground, Toggle, Copy, Delete */}
         <div className="flex items-center gap-0.5">
+          {onTest && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onTest}
+              disabled={isTesting}
+              title="Quick Test / Ping Model"
+              className="h-7 w-7 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
+            >
+              {isTesting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />
+              ) : (
+                <Zap className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          )}
+
+          {onOpenChat && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onOpenChat}
+              title="Open Chat Playground"
+              className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
           {onToggleDisable && (
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={onToggleDisable}
               title={disabled ? "Enable model" : "Disable model"}
+              className="h-7 w-7"
             >
-              {disabled ? <ToggleLeft className="h-4 w-4" /> : <ToggleRight className="h-4 w-4 text-[var(--color-primary-container)]" />}
+              {disabled ? (
+                <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ToggleRight className="h-4 w-4 text-primary" />
+              )}
             </Button>
           )}
+
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={handleCopy}
-            title="Copy model path"
+            title="Copy model route path"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
           >
             {copied ? (
-              <CheckCircle className="h-3.5 w-3.5 text-[var(--color-primary-container)]" />
+              <Check className="h-3.5 w-3.5 text-emerald-500" />
             ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
+              <Copy className="h-3.5 w-3.5" />
             )}
           </Button>
+
           {onDelete && (
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={onDelete}
               title="Delete model from database"
-              className="text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+              className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           )}
         </div>
       </div>
-      <div>
-        <code className="block truncate font-mono text-xs text-foreground tracking-tight" title={fullModel}>
+
+      {/* Model Name & Route */}
+      <div className="space-y-1 mb-3">
+        <code
+          className="block truncate font-mono text-xs font-semibold text-foreground tracking-tight"
+          title={fullModel}
+        >
           {fullModel}
         </code>
         {model.name && model.name !== model.id && (
-          <span className="mt-1 block truncate text-[10px] text-muted-foreground" title={model.name}>
+          <span
+            className="block truncate text-[11px] text-muted-foreground"
+            title={model.name}
+          >
             {model.name}
           </span>
+        )}
+      </div>
+
+      {/* Footer Meta: Context Window, Modalities / Capabilities & Test Status */}
+      <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[10px]">
+        {/* Capabilities / Specs */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {model.context_window ? (
+            <span className="font-mono px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground border border-border/50 font-medium">
+              {model.context_window >= 1000000
+                ? `${(model.context_window / 1000000).toFixed(0)}M ctx`
+                : `${Math.round(model.context_window / 1000)}K ctx`}
+            </span>
+          ) : null}
+
+          {hasVision && (
+            <span
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-medium"
+              title="Vision support (Image input)"
+            >
+              <Eye className="h-2.5 w-2.5" />
+              Vision
+            </span>
+          )}
+
+          {hasReasoning && (
+            <span
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 font-medium"
+              title="Thinking / Reasoning model"
+            >
+              <Brain className="h-2.5 w-2.5" />
+              Reasoning
+            </span>
+          )}
+
+          {hasTools && (
+            <span
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium"
+              title="Tools / Function calling support"
+            >
+              <Wrench className="h-2.5 w-2.5" />
+              Tools
+            </span>
+          )}
+
+          {hasPDF && (
+            <span
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium"
+              title="PDF document input"
+            >
+              <FileText className="h-2.5 w-2.5" />
+              PDF
+            </span>
+          )}
+
+          {hasAudio && (
+            <span
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20 font-medium"
+              title="Audio input"
+            >
+              <Mic className="h-2.5 w-2.5" />
+              Audio
+            </span>
+          )}
+        </div>
+
+        {/* Quick Test Result Badge */}
+        {testResult && (
+          <div>
+            {testResult.status === "ok" ? (
+              <span className="inline-flex items-center gap-1 font-mono text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                {testResult.latency_ms}ms
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 font-mono text-[10px] text-red-600 dark:text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/30 cursor-help"
+                title={testResult.error || "Model test failed"}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                Failed
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>

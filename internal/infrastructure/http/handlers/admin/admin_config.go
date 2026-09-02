@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	core "github.com/bobbyunknown/flamegate/internal/domain"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/capability"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/guardrails"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/guardrails/pii"
@@ -115,14 +116,67 @@ type ProviderModelsOutput struct {
 }
 
 type modelInfo struct {
-	ID         string   `json:"id"`
-	Name       string   `json:"name"`
-	Kind       string   `json:"kind"`
-	Custom     bool     `json:"custom,omitempty"`
-	DBID       string   `json:"db_id,omitempty"`
-	Discovered bool     `json:"discovered,omitempty"`
-	Tier       string   `json:"tier,omitempty"`
-	Tags       []string `json:"tags,omitempty"`
+	ID               string   `json:"id"`
+	Name             string   `json:"name"`
+	Kind             string   `json:"kind"`
+	Custom           bool     `json:"custom,omitempty"`
+	DBID             string   `json:"db_id,omitempty"`
+	Discovered       bool     `json:"discovered,omitempty"`
+	Tier             string   `json:"tier,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	ContextWindow    int      `json:"context_window,omitempty"`
+	MaxOutputTokens  int      `json:"max_output_tokens,omitempty"`
+	InputModalities  []string `json:"input_modalities,omitempty"`
+	OutputModalities []string `json:"output_modalities,omitempty"`
+	Vision           bool     `json:"vision,omitempty"`
+	Reasoning        bool     `json:"reasoning,omitempty"`
+	Tools            bool     `json:"tools,omitempty"`
+}
+
+func enrichModelInfo(providerID, modelID string, mi *modelInfo) {
+	prof := capability.ResolveProfile(providerID, modelID)
+	if mi.ContextWindow == 0 && prof.ContextWindow > 0 {
+		mi.ContextWindow = prof.ContextWindow
+	}
+	if mi.MaxOutputTokens == 0 && prof.MaxOutput > 0 {
+		mi.MaxOutputTokens = prof.MaxOutput
+	}
+	if prof.Vision {
+		mi.Vision = true
+	}
+	if prof.Reasoning {
+		mi.Reasoning = true
+	}
+	if prof.Tools {
+		mi.Tools = true
+	}
+
+	if len(mi.InputModalities) == 0 {
+		mods := []string{"text"}
+		if prof.Vision {
+			mods = append(mods, "image")
+		}
+		if prof.PDF {
+			mods = append(mods, "pdf")
+		}
+		if prof.AudioInput {
+			mods = append(mods, "audio")
+		}
+		if prof.VideoInput {
+			mods = append(mods, "video")
+		}
+		mi.InputModalities = mods
+	}
+	if len(mi.OutputModalities) == 0 {
+		mods := []string{"text"}
+		if prof.ImageOutput {
+			mods = append(mods, "image")
+		}
+		if prof.AudioOutput {
+			mods = append(mods, "audio")
+		}
+		mi.OutputModalities = mods
+	}
 }
 
 func inferModelTags(id, name, existingTier string, existingTags []string) (string, []string) {
@@ -381,14 +435,17 @@ func (s *Handler) HumaProviderModels(ctx context.Context, input *ProviderModelsI
 						}
 					}
 					tier, tags = inferModelTags(modelID, name, tier, tags)
-					out = append(out, modelInfo{
-						ID:         modelID,
-						Name:       name,
-						Kind:       string(core.ServiceLLM),
-						Discovered: em.Source == "discovered",
-						Tier:       tier,
-						Tags:       tags,
-					})
+					mi := modelInfo{
+						ID:              modelID,
+						Name:            name,
+						Kind:            string(core.ServiceLLM),
+						Discovered:      em.Source == "discovered",
+						Tier:            tier,
+						Tags:            tags,
+						ContextWindow:   em.ContextWindow,
+						MaxOutputTokens: em.MaxOutput,
+					}
+					out = append(out, mi)
 					seen[modelID] = true
 				}
 			}
@@ -398,6 +455,10 @@ func (s *Handler) HumaProviderModels(ctx context.Context, input *ProviderModelsI
 	// Native with neither live source nor static/custom: not discovery-capable.
 	if connectors.IsNativeSlug(providerID) && liveSrc == nil {
 		discoverySupported = false
+	}
+
+	for i := range out {
+		enrichModelInfo(providerID, out[i].ID, &out[i])
 	}
 
 	if out == nil {

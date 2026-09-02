@@ -18,6 +18,7 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/http/openapi"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/pipeline"
 	"github.com/bobbyunknown/flamegate/internal/shared/httputil"
 	"github.com/bobbyunknown/flamegate/internal/shared/vault"
 )
@@ -2282,4 +2283,211 @@ func (s *Handler) HumaQuotaUsage(ctx context.Context, input *QuotaUsageInput) (*
 		Accounts []map[string]any `json:"accounts"`
 		Since    string           `json:"since"`
 	}{Accounts: out, Since: since.Format(time.RFC3339)}}, nil
+}
+
+// --- Test Model ---
+
+type TestModelInput struct {
+	Body struct {
+		Provider  string `json:"provider" doc:"Provider ID or alias (e.g. cline, antigravity)"`
+		Model     string `json:"model" doc:"Model ID (e.g. z-ai/glm-5.3-flash or gemini-3.7-flash-high)"`
+		AccountID string `json:"account_id,omitempty" doc:"Optional specific account ID to test"`
+	}
+}
+
+type TestModelOutputBody struct {
+	Status       string `json:"status" enum:"ok,error" doc:"Test outcome"`
+	LatencyMs    int64  `json:"latency_ms" doc:"Response latency in milliseconds"`
+	ResponseText string `json:"response_text,omitempty" doc:"Response snippet from model"`
+	Error        string `json:"error,omitempty" doc:"Error description if failed"`
+}
+
+type TestModelOutput struct {
+	Body TestModelOutputBody
+}
+
+func (s *Handler) HumaTestModel(ctx context.Context, input *TestModelInput) (*TestModelOutput, error) {
+	if s.pipeline == nil {
+		return nil, huma.Error500InternalServerError("pipeline not configured")
+	}
+	provider := strings.TrimSpace(input.Body.Provider)
+	model := strings.TrimSpace(input.Body.Model)
+	if model == "" {
+		return nil, huma.Error400BadRequest("model is required")
+	}
+
+	fullModel := model
+	if provider != "" && !strings.HasPrefix(model, provider+"/") {
+		fullModel = provider + "/" + model
+	}
+
+	testCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	testMaxTokens := 16
+	chatReq := &core.ChatRequest{
+		Model: fullModel,
+		Messages: []core.Message{
+			{
+				Role: "user",
+				Content: []core.ContentPart{
+					{Type: "text", Text: "Hi"},
+				},
+			},
+		},
+		MaxTokens: &testMaxTokens,
+		Metadata: core.RequestMetadata{
+			TenantID: adminTenant,
+		},
+	}
+
+	start := time.Now()
+	res, err := s.pipeline.Chat(testCtx, chatReq, pipeline.Options{})
+	latency := time.Since(start).Milliseconds()
+
+	if err != nil {
+		return &TestModelOutput{Body: TestModelOutputBody{
+			Status:    "error",
+			LatencyMs: latency,
+			Error:     err.Error(),
+		}}, nil
+	}
+
+	respText := ""
+	if res != nil && res.Response != nil {
+		respText = res.Response.Message.TextContent()
+	}
+	if respText == "" {
+		respText = "ok"
+	}
+
+	return &TestModelOutput{Body: TestModelOutputBody{
+		Status:       "ok",
+		LatencyMs:    latency,
+		ResponseText: respText,
+	}}, nil
+}
+
+// --- Test Chat (Playground Unary) ---
+
+type TestChatMessageInput struct {
+	Role    string `json:"role" enum:"user,assistant,system" doc:"Message role"`
+	Content string `json:"content" doc:"Message content"`
+}
+
+type TestChatInput struct {
+	Body struct {
+		Provider    string                 `json:"provider" doc:"Provider ID or alias"`
+		Model       string                 `json:"model" doc:"Model ID"`
+		Messages    []TestChatMessageInput `json:"messages" doc:"Chat message history"`
+		System      string                 `json:"system,omitempty" doc:"Optional system prompt"`
+		Temperature *float64               `json:"temperature,omitempty" doc:"Temperature"`
+		MaxTokens   int                    `json:"max_tokens,omitempty" doc:"Max tokens"`
+	}
+}
+
+type TestChatOutputBody struct {
+	Status           string `json:"status" enum:"ok,error"`
+	ResponseText     string `json:"response_text,omitempty"`
+	LatencyMs        int64  `json:"latency_ms"`
+	PromptTokens     int    `json:"prompt_tokens,omitempty"`
+	CompletionTokens int    `json:"completion_tokens,omitempty"`
+	Model            string `json:"model,omitempty"`
+	Error            string `json:"error,omitempty"`
+}
+
+type TestChatOutput struct {
+	Body TestChatOutputBody
+}
+
+func (s *Handler) HumaTestChat(ctx context.Context, input *TestChatInput) (*TestChatOutput, error) {
+	if s.pipeline == nil {
+		return nil, huma.Error500InternalServerError("pipeline not configured")
+	}
+	provider := strings.TrimSpace(input.Body.Provider)
+	model := strings.TrimSpace(input.Body.Model)
+	if model == "" {
+		return nil, huma.Error400BadRequest("model is required")
+	}
+
+	fullModel := model
+	if provider != "" && !strings.HasPrefix(model, provider+"/") {
+		fullModel = provider + "/" + model
+	}
+
+	var msgs []core.Message
+	if input.Body.System != "" {
+		msgs = append(msgs, core.Message{
+			Role: "system",
+			Content: []core.ContentPart{
+				{Type: "text", Text: input.Body.System},
+			},
+		})
+	}
+	for _, m := range input.Body.Messages {
+		if strings.TrimSpace(m.Content) == "" {
+			continue
+		}
+		msgs = append(msgs, core.Message{
+			Role: core.Role(m.Role),
+			Content: []core.ContentPart{
+				{Type: "text", Text: m.Content},
+			},
+		})
+	}
+	if len(msgs) == 0 {
+		return nil, huma.Error400BadRequest("at least one message is required")
+	}
+
+	maxTokens := input.Body.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = 2048
+	}
+
+	chatReq := &core.ChatRequest{
+		Model:       fullModel,
+		Messages:    msgs,
+		MaxTokens:   &maxTokens,
+		Temperature: input.Body.Temperature,
+		Metadata: core.RequestMetadata{
+			TenantID: adminTenant,
+		},
+	}
+
+	testCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	res, err := s.pipeline.Chat(testCtx, chatReq, pipeline.Options{})
+	latency := time.Since(start).Milliseconds()
+
+	if err != nil {
+		return &TestChatOutput{Body: TestChatOutputBody{
+			Status:    "error",
+			LatencyMs: latency,
+			Error:     err.Error(),
+		}}, nil
+	}
+
+	respText := ""
+	promptTokens := 0
+	compTokens := 0
+	retModel := fullModel
+	if res != nil && res.Response != nil {
+		respText = res.Response.Message.TextContent()
+		promptTokens = res.Response.Usage.PromptTokens
+		compTokens = res.Response.Usage.CompletionTokens
+		if res.Response.Model != "" {
+			retModel = res.Response.Model
+		}
+	}
+
+	return &TestChatOutput{Body: TestChatOutputBody{
+		Status:           "ok",
+		ResponseText:     respText,
+		LatencyMs:        latency,
+		PromptTokens:     promptTokens,
+		CompletionTokens: compTokens,
+		Model:            retModel,
+	}}, nil
 }
