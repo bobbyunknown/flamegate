@@ -185,7 +185,7 @@ function UsageContent({
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Precision Stat Grid */}
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard label="REQUESTS" value={fmtNum(summary.total_requests)} icon={Activity} />
         <StatCard label="INPUT TOKENS" value={fmtNum(summary.prompt_tokens)} icon={Zap} />
@@ -217,9 +217,8 @@ function UsageContent({
         </div>
       </div>
 
-      {/* Main Layout Grid */}
+      {/* Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] items-stretch">
-        {/* FlameGate Borderless Synapse Routing Topology */}
         <div className="flex flex-col rounded-xl border border-border bg-card shadow-xs overflow-hidden h-full">
           <RoutingTopology
             providers={providers}
@@ -231,7 +230,6 @@ function UsageContent({
           />
         </div>
 
-        {/* Insights */}
         <UsageInsightsCard data={data} />
         
         {/* Activity chart */}
@@ -298,7 +296,7 @@ function UsageContent({
   );
 }
 
-// ─── FlameGate Borderless Synapse Routing Topology ───────────────────────────
+// Routing Topology
 
 interface TopoSource {
   key: string;
@@ -337,7 +335,6 @@ function RoutingTopology({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(Date.now());
 
-  // Tick clock every second for live / recent animation expiration
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -356,7 +353,6 @@ function RoutingTopology({
     const catalogByProvider = new Map<string, Provider>();
     providerCatalog.forEach((p) => catalogByProvider.set(p.id.toLowerCase(), p));
 
-    // Gather all configured/active providers so they stay visible at rest
     const configuredProviderIds = new Set<string>();
     accounts.forEach((acc) => {
       if (!acc.disabled && acc.provider) {
@@ -364,7 +360,6 @@ function RoutingTopology({
       }
     });
 
-    // Also include providers with recorded requests in current period
     providers.forEach((p) => {
       if (p.total_requests > 0) {
         configuredProviderIds.add(p.provider.toLowerCase());
@@ -410,15 +405,7 @@ function RoutingTopology({
       };
     });
 
-    // Sort providers: Live -> Recent -> Most requests -> Alphabetical
-    provs.sort((a, b) => {
-      if (a.live && !b.live) return -1;
-      if (!a.live && b.live) return 1;
-      if (a.recent && !b.recent) return -1;
-      if (!a.recent && b.recent) return 1;
-      if (b.requests !== a.requests) return b.requests - a.requests;
-      return a.label.localeCompare(b.label);
-    });
+    provs.sort((a, b) => a.label.localeCompare(b.label));
 
     const chs = chains.map<TopoSource>((c) => {
       const isAnyStepLive = c.steps.some(
@@ -470,14 +457,25 @@ function RoutingTopology({
   };
 
   const n = sources.length;
-  const height = Math.max(300, Math.min(480, 220 + Math.max(0, n - 2) * 44));
+  const height = Math.max(340, Math.min(520, 240 + Math.max(0, n - 2) * 44));
 
   const placed = useMemo(() => {
     const w = width || 600;
     const cx = w / 2;
     const cy = height / 2;
-    const rx = Math.max(140, Math.min(w * 0.35, cx - 110));
-    const ry = Math.max(88, cy - 64);
+    const rx = Math.max(160, Math.min(w * 0.38, cx - 120));
+    const ry = Math.max(92, cy - 64);
+
+    if (n === 1) {
+      return [{ ...sources[0], x: cx - rx, y: cy }];
+    }
+    if (n === 2) {
+      return [
+        { ...sources[0], x: cx - rx, y: cy },
+        { ...sources[1], x: cx + rx, y: cy },
+      ];
+    }
+
     return sources.map((s, i) => {
       const theta = Math.PI + (i * 2 * Math.PI) / Math.max(1, n);
       return { ...s, x: cx + rx * Math.cos(theta), y: cy + ry * Math.sin(theta) };
@@ -488,13 +486,31 @@ function RoutingTopology({
   const cy = height / 2;
   const anyLiveActive = sources.some((s) => s.live);
 
+  const getWavePath = (sx: number, sy: number, ex: number, ey: number, idx: number) => {
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const dist = Math.hypot(dx, dy) || 1;
+
+    const nx = -dy / dist;
+    const ny = dx / dist;
+
+    const dir = idx % 2 === 0 ? 1 : -1;
+    const waveOffset = Math.min(50, Math.max(22, dist * 0.2)) * dir;
+
+    const cp1x = sx + dx * 0.38 + nx * waveOffset;
+    const cp1y = sy + dy * 0.38 + ny * waveOffset;
+    const cp2x = sx + dx * 0.62 - nx * (waveOffset * 0.5);
+    const cp2y = sy + dy * 0.62 - ny * (waveOffset * 0.5);
+
+    return `M ${sx.toFixed(1)} ${sy.toFixed(1)} C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+  };
+
   const expandedChains = placed.filter(
     (s) => s.kind === "chain" && expanded.has(s.key) && s.chain
   );
 
   return (
     <>
-      {/* Topology Header */}
       <div className="flex items-center justify-between border-b border-border px-5 py-3 bg-muted/40">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
@@ -524,58 +540,115 @@ function RoutingTopology({
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">No configured provider accounts</p>
         </div>
       ) : (
-        <div className="relative p-6 flex-1 flex flex-col justify-center bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.04)_0%,transparent_70%)]">
+        <div className="relative p-6 flex-1 flex flex-col justify-center bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.06)_0%,transparent_75%)]">
           <style>{`
-            @keyframes flameFlow {
-              from { stroke-dashoffset: 24; }
-              to { stroke-dashoffset: 0; }
+            @keyframes plasmaStream {
+              0% { stroke-dashoffset: 48; }
+              100% { stroke-dashoffset: 0; }
             }
-            .flame-flow-active {
-              animation: flameFlow 0.8s linear infinite;
+            @keyframes plasmaPulseGlow {
+              0%, 100% { opacity: 0.25; }
+              50% { opacity: 0.55; }
+            }
+            .synapse-live-beam {
+              animation: plasmaStream 0.9s linear infinite;
+            }
+            .synapse-recent-beam {
+              animation: plasmaStream 2.2s linear infinite;
+            }
+            .synapse-aura-pulse {
+              animation: plasmaPulseGlow 1.8s ease-in-out infinite;
             }
           `}</style>
 
           <div ref={containerRef} className="relative w-full" style={{ height }}>
-            {/* SVG Dynamic Laser Connector layer */}
             {width > 0 && (
               <svg className="pointer-events-none absolute inset-0" width={width} height={height} viewBox={`0 0 ${width} ${height}`} fill="none">
                 <defs>
-                  <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
-                    <stop offset="60%" stopColor="#f97316" stopOpacity="0.05" />
+                  <filter id="synapseBlurGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                  <filter id="wideAura" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="8" />
+                  </filter>
+                  <radialGradient id="hubCenterAura" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity={anyLiveActive ? 0.35 : 0.15} />
+                    <stop offset="65%" stopColor="#f97316" stopOpacity={anyLiveActive ? 0.08 : 0.02} />
                     <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
                   </radialGradient>
-                  <linearGradient id="laserBeam" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#f97316" />
-                    <stop offset="50%" stopColor="#fb923c" />
-                    <stop offset="100%" stopColor="#fdba74" />
+                  <linearGradient id="liveLaserBeam" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity="0.8" />
+                    <stop offset="50%" stopColor="#ff5500" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#fbbf24" stopOpacity="0.9" />
                   </linearGradient>
                 </defs>
 
-                {/* Soft ambient center aura */}
-                <circle cx={cx} cy={cy} r={110} fill="url(#centerGlow)" />
-                <circle cx={cx} cy={cy} r={52} stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
-                <circle cx={cx} cy={cy} r={80} stroke="rgba(255,255,255,0.03)" strokeWidth={1} strokeDasharray="3 6" />
+                <circle cx={cx} cy={cy} r={120} fill="url(#hubCenterAura)" />
+                <circle cx={cx} cy={cy} r={56} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+                <circle cx={cx} cy={cy} r={92} stroke="rgba(255,255,255,0.03)" strokeWidth={1} strokeDasharray="3 6" />
+                <line x1={cx - 105} y1={cy} x2={cx - 65} y2={cy} stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
+                <line x1={cx + 65} y1={cy} x2={cx + 105} y2={cy} stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
 
-                {/* Laser connection lines */}
-                {placed.map((s) => {
-                  const d = `M ${s.x} ${s.y} L ${cx} ${cy}`;
+                {placed.map((s, idx) => {
+                  const d = getWavePath(s.x, s.y, cx, cy, idx);
+
                   if (s.live) {
                     return (
                       <g key={s.key}>
-                        {/* Glow halo */}
-                        <path d={d} stroke="#f97316" strokeWidth={5} strokeOpacity={0.3} strokeLinecap="round" />
-                        {/* Active animated pulsing beam */}
                         <path
                           d={d}
-                          stroke="url(#laserBeam)"
-                          strokeWidth={2.5}
-                          strokeDasharray="6 8"
+                          stroke="#ff5500"
+                          strokeWidth={9}
+                          strokeOpacity={0.3}
                           strokeLinecap="round"
-                          className="flame-flow-active"
+                          filter="url(#wideAura)"
+                          className="synapse-aura-pulse"
                         />
-                        {/* Destination node pulse anchor */}
-                        <circle cx={s.x} cy={s.y} r={4} fill="#f97316" />
+                        <path
+                          d={d}
+                          stroke="url(#liveLaserBeam)"
+                          strokeWidth={3}
+                          strokeLinecap="round"
+                          filter="url(#synapseBlurGlow)"
+                        />
+                        <path
+                          d={d}
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                          strokeDasharray="10 14"
+                          strokeLinecap="round"
+                          className="synapse-live-beam"
+                        />
+                        <circle r={4.5} fill="#ffedd5" filter="url(#synapseBlurGlow)">
+                          <animateMotion
+                            dur="1.3s"
+                            repeatCount="indefinite"
+                            path={d}
+                            keyPoints="0;1"
+                            keyTimes="0;1"
+                            calcMode="linear"
+                          />
+                        </circle>
+                        <circle r={2.5} fill="#ffffff">
+                          <animateMotion
+                            dur="1.3s"
+                            repeatCount="indefinite"
+                            path={d}
+                            keyPoints="0;1"
+                            keyTimes="0;1"
+                            calcMode="linear"
+                          />
+                        </circle>
+
+                        <circle cx={s.x} cy={s.y} r={4.5} fill="#f97316" filter="url(#synapseBlurGlow)" />
+                        <circle cx={s.x} cy={s.y} r={7.5} stroke="#f97316" strokeWidth={1.5} strokeOpacity={0.6}>
+                          <animate attributeName="r" values="4.5;11;4.5" dur="1.6s" repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0.8;0.1;0.8" dur="1.6s" repeatCount="indefinite" />
+                        </circle>
                       </g>
                     );
                   }
@@ -586,34 +659,40 @@ function RoutingTopology({
                         <path
                           d={d}
                           stroke="#f59e0b"
-                          strokeWidth={1.5}
+                          strokeWidth={2.5}
+                          strokeOpacity={0.4}
                           strokeLinecap="round"
-                          strokeOpacity={0.65}
+                          filter="url(#synapseBlurGlow)"
                         />
-                        <circle cx={s.x} cy={s.y} r={3} fill="#f59e0b" opacity={0.8} />
+                        <path
+                          d={d}
+                          stroke="#fbbf24"
+                          strokeWidth={1.5}
+                          strokeDasharray="6 12"
+                          strokeLinecap="round"
+                          className="synapse-recent-beam"
+                        />
+                        <circle cx={s.x} cy={s.y} r={3.5} fill="#f59e0b" />
                       </g>
                     );
                   }
 
-                  // Standby connection (Idle): Smooth, elegant, borderless laser trace
                   return (
                     <g key={s.key}>
                       <path
                         d={d}
                         stroke="rgba(255,255,255,0.08)"
                         strokeWidth={1.25}
-                        strokeDasharray={s.requests > 0 ? "4 4" : "2 6"}
+                        strokeDasharray={s.requests > 0 ? "4 5" : "2 7"}
                         strokeLinecap="round"
-                        strokeOpacity={s.requests > 0 ? 0.6 : 0.3}
                       />
-                      <circle cx={s.x} cy={s.y} r={2} fill="rgba(255,255,255,0.2)" />
+                      <circle cx={s.x} cy={s.y} r={2.5} fill="rgba(255,255,255,0.2)" />
                     </g>
                   );
                 })}
               </svg>
             )}
 
-            {/* FlameGate Centerpiece Emblem (Floating Hub) */}
             <div
               className={`absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 select-none`}
               style={{ left: cx, top: cy }}
@@ -621,7 +700,7 @@ function RoutingTopology({
               <div
                 className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900/90 backdrop-blur-md shadow-2xl transition-all duration-500 ${
                   anyLiveActive
-                    ? "ring-2 ring-orange-500/80 shadow-[0_0_30px_rgba(249,115,22,0.35)] scale-105"
+                    ? "ring-2 ring-orange-500/80 shadow-[0_0_35px_rgba(249,115,22,0.45)] scale-105"
                     : "ring-1 ring-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:ring-white/20"
                 }`}
               >
@@ -643,16 +722,14 @@ function RoutingTopology({
               </div>
             </div>
 
-            {/* Orbiting Borderless Floating Nodes */}
             {width > 0 &&
               placed.map((s) => (
                 <div key={s.key} className="absolute z-10 -translate-x-1/2 -translate-y-1/2" style={{ left: s.x, top: s.y }}>
-                  <RadialNode source={s} expanded={expanded.has(s.key)} onToggle={() => toggle(s.key)} />
+                  <RadialNode source={s} isLeft={s.x < cx} expanded={expanded.has(s.key)} onToggle={() => toggle(s.key)} />
                 </div>
               ))}
           </div>
 
-          {/* Expanded Chain Pipeline Detail */}
           {expandedChains.length > 0 && (
             <div className="mt-4 space-y-2 border-t border-border/60 pt-3">
               {expandedChains.map((s) => (
@@ -666,9 +743,9 @@ function RoutingTopology({
   );
 }
 
-// ─── Borderless Floating Synapse Node ────────────────────────────────────────
+// Provider Node
 
-function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expanded: boolean; onToggle: () => void }) {
+function RadialNode({ source, isLeft, expanded, onToggle }: { source: TopoSource; isLeft: boolean; expanded: boolean; onToggle: () => void }) {
   const isChain = source.kind === "chain";
   const hasFallback = !!(source.chain?.fallback_provider && source.chain?.fallback_model);
 
@@ -676,14 +753,11 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
     <div
       role={isChain ? "button" : undefined}
       onClick={isChain ? onToggle : undefined}
-      className={`group flex items-center gap-3 p-1.5 rounded-2xl transition-all duration-300 hover:bg-white/[0.04] ${
-        isChain ? "cursor-pointer select-none" : ""
+      className={`group relative flex items-center select-none ${
+        isChain ? "cursor-pointer" : ""
       }`}
-      style={{ minWidth: "170px" }}
     >
-      {/* Floating Orb Icon with ambient brand glow */}
-      <div className="relative shrink-0">
-        {/* Ambient brand glow aura */}
+      <div className="relative shrink-0 flex items-center justify-center">
         <div
           className="absolute -inset-1 rounded-2xl opacity-40 blur-md transition-opacity duration-300 group-hover:opacity-75"
           style={{
@@ -692,16 +766,16 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
         />
 
         <div
-          className={`relative flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900/90 backdrop-blur-md shadow-lg transition-transform duration-300 group-hover:scale-105 ${
+          className={`relative flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/90 backdrop-blur-md shadow-lg transition-transform duration-300 group-hover:scale-105 ${
             source.live
-              ? "ring-2 ring-orange-500 shadow-[0_0_16px_rgba(249,115,22,0.4)]"
+              ? "ring-2 ring-orange-500 shadow-[0_0_18px_rgba(249,115,22,0.45)]"
               : source.recent
               ? "ring-1 ring-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
               : "ring-1 ring-white/10"
           }`}
         >
           {isChain ? (
-            <Layers className="h-4 w-4 text-primary" />
+            <Layers className="h-5 w-5 text-primary" />
           ) : source.icon ? (
             <img
               src={source.icon}
@@ -715,11 +789,10 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
             <span className="text-xs font-bold text-muted-foreground">{source.label.slice(0, 2).toUpperCase()}</span>
           )}
 
-          {/* Status Badge Ring */}
           {source.live ? (
             <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500" />
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-orange-500" />
             </span>
           ) : source.recent ? (
             <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-zinc-900" />
@@ -729,14 +802,24 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
         </div>
       </div>
 
-      {/* Floating Typography & Status */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
+      <div
+        className={`absolute top-1/2 -translate-y-1/2 flex flex-col min-w-[140px] max-w-[180px] pointer-events-auto ${
+          isLeft
+            ? "right-full mr-3 items-end text-right"
+            : "left-full ml-3 items-start text-left"
+        }`}
+      >
+        <div className={`flex items-center gap-1.5 ${isLeft ? "flex-row-reverse" : "flex-row"}`}>
           <span className="truncate text-xs font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
             {source.label}
           </span>
           {isChain && (
             <ChevronRight className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`} />
+          )}
+          {isChain && hasFallback && (
+            <span className="flex h-3.5 items-center rounded bg-amber-500/10 px-0.5 text-amber-500" title="Fallback configured">
+              <Shield className="h-2.5 w-2.5" />
+            </span>
           )}
         </div>
 
@@ -746,9 +829,8 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
           </span>
         </div>
 
-        {/* Minimalist ambient traffic bar */}
         {source.share > 0 && !isChain && (
-          <div className="h-0.5 w-12 overflow-hidden rounded-full bg-white/10 mt-1.5">
+          <div className={`h-0.5 w-12 overflow-hidden rounded-full bg-white/10 mt-1.5 ${isLeft ? "self-end" : "self-start"}`}>
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
@@ -759,12 +841,6 @@ function RadialNode({ source, expanded, onToggle }: { source: TopoSource; expand
           </div>
         )}
       </div>
-
-      {isChain && hasFallback && (
-        <span className="flex h-4 items-center rounded bg-amber-500/10 px-1 text-amber-500" title="Fallback configured">
-          <Shield className="h-2.5 w-2.5" />
-        </span>
-      )}
     </div>
   );
 }
