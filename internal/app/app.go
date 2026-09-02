@@ -224,7 +224,9 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 	uh := usagehub.New()
 	mtr.SetHub(uh)
 	bud := budget.New(db.Budgets(), db.Usage())
+	refresher := auth.NewTokenRefresher(db.Accounts(), v, wasmEngine, log.WithField("subsystem", "refresher"))
 	disp := dispatch.New(connRegistry, db.Accounts(), v)
+	disp.SetRefresher(refresher)
 	// Resolve proxy pool bindings for accounts that have one.
 	disp.SetPoolSource(db.ProxyPools())
 	// Model-level cooldowns, round-robin chain rotation, and background health.
@@ -378,6 +380,7 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 
 	pipe := pipeline.New(pipeline.Deps{
 		Dispatcher:         disp,
+		Refresher:          refresher,
 		Meter:              mtr,
 		Budget:             bud,
 		Slimmer:            slim,

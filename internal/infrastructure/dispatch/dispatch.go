@@ -117,6 +117,12 @@ type GlobalProxyReader interface {
 	NoProxy() string
 }
 
+// TokenRefresher ensures account tokens are valid, refreshing if expired.
+type TokenRefresher interface {
+	EnsureValidToken(ctx context.Context, acc schema.Account) (core.Credentials, schema.Account, error)
+	RefreshToken(ctx context.Context, acc schema.Account) (core.Credentials, schema.Account, error)
+}
+
 // Dispatcher walks fallback chains, yielding resolved attempts.
 type Dispatcher struct {
 	conns       ConnectorSource
@@ -126,6 +132,7 @@ type Dispatcher struct {
 	routing     RoutingSource
 	health      HealthSource
 	proxyReader GlobalProxyReader
+	refresher   TokenRefresher
 	// defaultCooldown is applied to an account when an error carries no
 	// upstream-specified Retry-After.
 	defaultCooldown time.Duration
@@ -154,6 +161,9 @@ func (d *Dispatcher) SetHealthSource(h HealthSource) { d.health = h }
 // SetGlobalProxy installs a global outbound proxy reader, consulted as a
 // fallback when an account has no per-account proxy pool binding.
 func (d *Dispatcher) SetGlobalProxy(r GlobalProxyReader) { d.proxyReader = r }
+
+// SetRefresher installs the OAuth token refresher service.
+func (d *Dispatcher) SetRefresher(r TokenRefresher) { d.refresher = r }
 
 // PlanOptions carries per-request strategy configuration.
 type PlanOptions struct {
@@ -280,6 +290,13 @@ func (d *Dispatcher) PlanWith(ctx context.Context, tenantID string, targets []Ta
 			if err != nil {
 				lastReason = err.Error()
 				continue
+			}
+			// Proactive OAuth token refresh if token expired or about to expire.
+			if d.refresher != nil && (acc.AuthKind == "oauth" || acc.RefreshCiphertext != "") {
+				if refreshedCreds, updatedAcc, refErr := d.refresher.EnsureValidToken(ctx, acc); refErr == nil {
+					creds = refreshedCreds
+					acc = updatedAcc
+				}
 			}
 			// Resolve proxy pool binding for this account.
 			if d.pools != nil && acc.ProxyPoolID != "" {

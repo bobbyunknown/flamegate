@@ -52,10 +52,33 @@ type guestRequest struct {
 
 // guestResponse is the JSON payload returned by the WASM guest's invoke function.
 type guestResponse struct {
-	Content      string `json:"content"`
-	FinishReason string `json:"finish_reason,omitempty"`
-	Error        string `json:"error,omitempty"`
-	Code         string `json:"code,omitempty"`
+	Content      string          `json:"content"`
+	FinishReason string          `json:"finish_reason,omitempty"`
+	Error        json.RawMessage `json:"error,omitempty"`
+	Code         string          `json:"code,omitempty"`
+	Message      string          `json:"message,omitempty"`
+}
+
+func (g *guestResponse) ErrorString() string {
+	if len(g.Error) > 0 {
+		var s string
+		if err := json.Unmarshal(g.Error, &s); err == nil && s != "" {
+			return s
+		}
+		var obj struct {
+			Message string `json:"message"`
+			Code    any    `json:"code"`
+			Status  string `json:"status"`
+		}
+		if err := json.Unmarshal(g.Error, &obj); err == nil && obj.Message != "" {
+			return obj.Message
+		}
+		return string(g.Error)
+	}
+	if g.Message != "" {
+		return g.Message
+	}
+	return ""
 }
 
 // guestDelta carries incremental text in canonical OpenAI format.
@@ -272,18 +295,14 @@ func (c *WASMConnector) Chat(ctx context.Context, req *core.ChatRequest, creds c
 	// Read response from guest memory.
 	var gResp guestResponse
 	if err := readGuestJSON(inst, respPtr, 0, &gResp); err != nil {
-		// Try reading raw bytes and parsing manually.
-		raw, readErr := readGuestBytes(inst, respPtr, 4096)
-		if readErr != nil {
-			return nil, fmt.Errorf("wasm: read response: %w", readErr)
-		}
-		if jsonErr := json.Unmarshal(raw, &gResp); jsonErr != nil {
-			return nil, fmt.Errorf("wasm: parse response: %w", jsonErr)
-		}
+		return nil, fmt.Errorf("wasm: read response: %w", err)
 	}
 
-	if gResp.Error != "" {
-		return nil, fmt.Errorf("wasm: guest error [%s]: %s", gResp.Code, gResp.Error)
+	if errMsg := gResp.ErrorString(); errMsg != "" {
+		if gResp.Code != "" {
+			return nil, fmt.Errorf("wasm: guest error [%s]: %s", gResp.Code, errMsg)
+		}
+		return nil, fmt.Errorf("wasm: guest error: %s", errMsg)
 	}
 
 	// Build canonical ChatResponse.
@@ -391,11 +410,10 @@ func (c *WASMConnector) Stream(ctx context.Context, req *core.ChatRequest, creds
 			respPtr := uint32(results[0])
 			if respPtr > 0 {
 				// Read and check for error response.
-				raw, readErr := readGuestBytes(inst, respPtr, 4096)
-				if readErr == nil {
-					var gResp guestResponse
-					if jsonErr := json.Unmarshal(raw, &gResp); jsonErr == nil && gResp.Error != "" {
-						invokeDone <- fmt.Errorf("wasm: guest error [%s]: %s", gResp.Code, gResp.Error)
+				var gResp guestResponse
+				if err := readGuestJSON(inst, respPtr, 0, &gResp); err == nil {
+					if errMsg := gResp.ErrorString(); errMsg != "" {
+						invokeDone <- fmt.Errorf("wasm: guest error [%s]: %s", gResp.Code, errMsg)
 						return
 					}
 				}

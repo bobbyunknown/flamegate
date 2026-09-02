@@ -27,6 +27,7 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/dispatch"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/guardrails"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/meter"
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 	"github.com/bobbyunknown/flamegate/internal/shared/caveman"
 	"github.com/bobbyunknown/flamegate/internal/shared/headroom"
 	"github.com/bobbyunknown/flamegate/internal/shared/limits"
@@ -36,6 +37,12 @@ import (
 	"github.com/bobbyunknown/flamegate/internal/shared/slimmer"
 	"github.com/bobbyunknown/flamegate/internal/shared/terse"
 )
+
+// TokenRefresher ensures account tokens are valid, refreshing if expired.
+type TokenRefresher interface {
+	EnsureValidToken(ctx context.Context, acc schema.Account) (core.Credentials, schema.Account, error)
+	RefreshToken(ctx context.Context, acc schema.Account) (core.Credentials, schema.Account, error)
+}
 
 // TimeoutReader provides dynamic timeout values that can be updated at runtime.
 type TimeoutReader interface {
@@ -52,6 +59,7 @@ const CooldownRetryMax = 10 * time.Second
 // Pipeline wires the request-processing stages together.
 type Pipeline struct {
 	dispatcher *dispatch.Dispatcher
+	refresher  TokenRefresher
 	meter      *meter.Meter
 	budget     *budget.Engine
 	slimmer    *slimmer.Engine
@@ -71,6 +79,7 @@ type Pipeline struct {
 // Deps bundles the pipeline's collaborators.
 type Deps struct {
 	Dispatcher *dispatch.Dispatcher
+	Refresher  TokenRefresher
 	Meter      *meter.Meter
 	Budget     *budget.Engine
 	Slimmer    *slimmer.Engine
@@ -99,6 +108,7 @@ func New(d Deps) *Pipeline {
 	}
 	return &Pipeline{
 		dispatcher: d.Dispatcher,
+		refresher:  d.Refresher,
 		meter:      d.Meter,
 		budget:     d.Budget,
 		slimmer:    d.Slimmer,
@@ -310,6 +320,34 @@ func (p *Pipeline) Chat(ctx context.Context, req *core.ChatRequest, opts Options
 				}
 			} else {
 				callErr = sErr
+			}
+		}
+
+		// Reactive OAuth token refresh fallback on 401 / auth error
+		if callErr != nil && isAuthError(callErr) && p.refresher != nil && (attempt.Account.AuthKind == "oauth" || attempt.Account.RefreshCiphertext != "") {
+			p.log.Debug("auth error detected, attempting reactive OAuth token refresh",
+				"provider", attempt.Target.Provider, "account", attempt.Account.ID)
+			if newCreds, updatedAcc, refErr := p.refresher.RefreshToken(ctx, attempt.Account); refErr == nil {
+				attempt.Creds = newCreds
+				attempt.Account = updatedAcc
+				retryCtx := core.WithProxy(ctx, attempt.Creds)
+				var retryCancel context.CancelFunc
+				if reqTimeout := p.resolvedRequestTimeout(); reqTimeout > 0 {
+					retryCtx, retryCancel = context.WithTimeout(retryCtx, reqTimeout)
+				}
+				retryResp, retryErr := attempt.Conn.Chat(retryCtx, attemptReq, attempt.Creds)
+				if retryCancel != nil {
+					retryCancel()
+				}
+				if retryErr == nil {
+					callErr = nil
+					resp = retryResp
+					latency = time.Since(started)
+					p.log.Info("reactive OAuth token refresh succeeded",
+						"provider", attempt.Target.Provider, "account", attempt.Account.ID)
+				} else {
+					callErr = retryErr
+				}
 			}
 		}
 
@@ -612,6 +650,27 @@ func (p *Pipeline) streamExec(ctx context.Context, req *core.ChatRequest, opts O
 		// Standard channel path: parse upstream SSE into canonical chunks,
 		// then render back to the client's dialect.
 		upstream, callErr := attempt.Conn.Stream(callCtx, attemptReq, attempt.Creds, streamCfg)
+
+		// Reactive OAuth token refresh fallback on 401 / auth error
+		if callErr != nil && isAuthError(callErr) && p.refresher != nil && (attempt.Account.AuthKind == "oauth" || attempt.Account.RefreshCiphertext != "") {
+			p.log.Debug("stream auth error detected, attempting reactive OAuth token refresh",
+				"provider", attempt.Target.Provider, "account", attempt.Account.ID)
+			if newCreds, updatedAcc, refErr := p.refresher.RefreshToken(ctx, attempt.Account); refErr == nil {
+				attempt.Creds = newCreds
+				attempt.Account = updatedAcc
+				retryCtx := core.WithProxy(ctx, attempt.Creds)
+				retryStream, retryErr := attempt.Conn.Stream(retryCtx, attemptReq, attempt.Creds, streamCfg)
+				if retryErr == nil {
+					callErr = nil
+					upstream = retryStream
+					p.log.Info("stream reactive OAuth token refresh succeeded",
+						"provider", attempt.Target.Provider, "account", attempt.Account.ID)
+				} else {
+					callErr = retryErr
+				}
+			}
+		}
+
 		if callErr != nil {
 			pe := core.AsProviderError(callErr)
 			lastErr = pe
@@ -1269,6 +1328,25 @@ func isStreamRequiredError(err error) bool {
 		strings.Contains(msg, "streaming is required") ||
 		strings.Contains(msg, "stream parameter is required") ||
 		strings.Contains(msg, `"stream" must be true`)
+}
+
+// isAuthError reports whether the error indicates authentication failure (401 / expired token).
+func isAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	pe := core.AsProviderError(err)
+	if pe != nil && (pe.Kind == core.ErrAuth || pe.StatusCode == 401) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "401") ||
+		strings.Contains(msg, "unauthenticated") ||
+		strings.Contains(msg, "unauthorized") ||
+		strings.Contains(msg, "invalid authentication credentials") ||
+		strings.Contains(msg, "re-authenticate") ||
+		strings.Contains(msg, "token expired") ||
+		strings.Contains(msg, "jwt expired")
 }
 
 // drainStream consumes a stream channel and folds the chunks into a single
