@@ -155,7 +155,8 @@ func Build(ctx context.Context, cfg config.Config, log *logrus.Logger, version s
 			connectors.RegisterExtensionSpec(connectors.ProviderSpec{
 				ID:           ext.Slug,
 				DisplayName:  display,
-				Alias:        ext.Slug,
+				Alias:        ext.Schema.Alias,
+				Aliases:      ext.Schema.Aliases,
 				Dialect:      core.DialectOpenAI,
 				AuthKind:     firstAuthModeOf(ext.Schema.AuthModes),
 				AuthModes:    ext.Schema.AuthModes,

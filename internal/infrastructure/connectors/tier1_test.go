@@ -11,10 +11,11 @@ func TestIsTier1Provider(t *testing.T) {
 		provider string
 		want     bool
 	}{
-		{"openai", true},
-		{"anthropic", true},
-		{"gemini", true},
-		{"OpenAI", true},    // case insensitive
+		{"custom-openai", true},
+		{"custom-anthropic", true},
+		{"custom-gemini", true},
+		{"Custom-OpenAI", true}, // case insensitive
+		{"openai", false},
 		{"mistral", false},
 		{"", false},
 	}
@@ -28,7 +29,7 @@ func TestIsTier1Provider(t *testing.T) {
 }
 
 func TestTier1Slugs(t *testing.T) {
-	want := []string{"openai", "anthropic", "gemini"}
+	want := []string{"custom-openai", "custom-anthropic", "custom-gemini"}
 	assert.Equal(t, want, tier1Slugs)
 	assert.Len(t, tier1Slugs, 3)
 }

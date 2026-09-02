@@ -11,6 +11,15 @@ var (
 	extSpecs = map[string]ProviderSpec{}
 )
 
+var defaultExtensionAliases = map[string]struct {
+	Alias   string
+	Aliases []string
+}{
+	"antigravity": {Alias: "agy", Aliases: []string{"agy", "antigravity"}},
+	"cline":       {Alias: "cl", Aliases: []string{"cl", "cline"}},
+	"xiaomi-mimo": {Alias: "mimo", Aliases: []string{"mimo", "xm", "xiaomi-mimo"}},
+}
+
 // RegisterExtensionSpec projects an installed WASM extension into Catalog/SpecByID.
 func RegisterExtensionSpec(spec ProviderSpec) {
 	if spec.ID == "" {
@@ -20,7 +29,17 @@ func RegisterExtensionSpec(spec ProviderSpec) {
 		spec.DisplayName = spec.ID
 	}
 	if spec.Alias == "" {
-		spec.Alias = spec.ID
+		if def, ok := defaultExtensionAliases[spec.ID]; ok {
+			spec.Alias = def.Alias
+			if len(spec.Aliases) == 0 {
+				spec.Aliases = def.Aliases
+			}
+		} else {
+			spec.Alias = spec.ID
+		}
+	}
+	if len(spec.Aliases) == 0 {
+		spec.Aliases = []string{spec.Alias, spec.ID}
 	}
 	if spec.Dialect == "" {
 		spec.Dialect = core.DialectOpenAI

@@ -82,17 +82,14 @@ func (r *Registry) Providers() []string {
 	return out
 }
 
-// DefaultRegistry builds the five static native connectors only.
+// DefaultRegistry builds the static custom template connectors.
 // Extensions resolve via SetWASMFallback; custom-* dynamic instances via dynamicConnector.
 func DefaultRegistry() *Registry {
 	conns := []core.Connector{
-		NewOpenAICompatible("openai", "https://api.openai.com/v1"),
-		NewAnthropic("anthropic", "https://api.anthropic.com/v1"),
-		NewGemini("gemini", "https://generativelanguage.googleapis.com/v1beta"),
 		NewOpenAICompatible("custom-openai", ""),
 		NewAnthropic("custom-anthropic", ""),
+		NewGemini("custom-gemini", ""),
 	}
-	RegisterLiveModelSource("openai", &OpenAICompatibleModelSource{provider: "openai", defaultBase: "https://api.openai.com/v1"})
 	RegisterLiveModelSource("custom-openai", &OpenAICompatibleModelSource{provider: "custom-openai", defaultBase: ""})
 	return NewRegistry(conns...)
 }

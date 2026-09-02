@@ -131,6 +131,20 @@ func (s *Service) FindModel(provider, modelID string) (*ModelSpec, bool) {
 		if spec, ok := s.byProviderModel[strings.ToLower(normModelID)]; ok {
 			return spec, true
 		}
+		// If modelID is vendor/model (e.g. "z-ai/glm-5.3-flash" or "anthropic/claude-sonnet-4-5")
+		subProvider, subModel, ok := strings.Cut(normModelID, "/")
+		if ok && subProvider != "" && subModel != "" {
+			subAlias := ResolveProviderAlias(subProvider)
+			if spec, ok := s.byProviderModel[subAlias+"/"+strings.ToLower(subModel)]; ok {
+				return spec, true
+			}
+			baseSub := ExtractBaseModelSlug(subModel)
+			if baseSub != "" {
+				if spec, ok := s.byProviderModel[subAlias+"/"+baseSub]; ok {
+					return spec, true
+				}
+			}
+		}
 	}
 
 	// 2) Tier 2: Alias Provider Match

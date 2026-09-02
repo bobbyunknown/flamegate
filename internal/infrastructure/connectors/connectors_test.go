@@ -221,10 +221,10 @@ func TestAnthropic_Chat(t *testing.T) {
 
 func TestRegistry_DefaultProviders(t *testing.T) {
 	reg := DefaultRegistry()
-	require.True(t, reg.Has("openai"))
-	require.True(t, reg.Has("anthropic"))
+	require.True(t, reg.Has("custom-openai"))
+	require.True(t, reg.Has("custom-anthropic"))
 
-	c, err := reg.Get("anthropic")
+	c, err := reg.Get("custom-anthropic")
 	require.NoError(t, err)
 	require.Equal(t, core.DialectAnthropic, c.Dialect())
 

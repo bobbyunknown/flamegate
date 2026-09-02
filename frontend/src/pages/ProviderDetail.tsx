@@ -566,9 +566,17 @@ export function ProviderDetailPage() {
       <header className="mb-7 flex items-start gap-4">
         <ProviderIcon provider={provider} size={56} />
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-3xl font-semibold tracking-tight">{provider.display_name}</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="font-display text-3xl font-semibold tracking-tight">{provider.display_name}</h1>
+            {provider.alias && provider.alias !== provider.id && (
+              <Badge variant="outline" className="font-mono text-xs font-medium text-muted-foreground">
+                alias: {provider.alias}
+              </Badge>
+            )}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {myAccounts.length} connected {myAccounts.length === 1 ? "account" : "accounts"}
+            <span className="font-mono text-xs text-muted-foreground/80 mr-2">{provider.id}</span>
+            · {myAccounts.length} connected {myAccounts.length === 1 ? "account" : "accounts"}
           </p>
           <div className="mt-2 flex flex-wrap gap-1">
             {(provider.service_kinds ?? []).map((k) => (

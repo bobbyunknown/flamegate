@@ -24,27 +24,8 @@ type ModelSpec struct {
 func m(id, name string) ModelSpec { return ModelSpec{ID: id, Name: name, Kind: core.ServiceLLM} }
 
 // providerModels maps a provider id to the curated set of models it offers.
-// Only static natives are listed; extensions discover models via WASM list_models.
-var providerModels = map[string][]ModelSpec{
-	"openai": {
-		m("gpt-5.4", "GPT-5.4"), m("gpt-5.4-mini", "GPT-5.4 Mini"), m("gpt-5.2", "GPT-5.2"),
-		m("gpt-5", "GPT-5"), m("gpt-5-mini", "GPT-5 Mini"), m("gpt-4o", "GPT-4o"),
-		m("gpt-4o-mini", "GPT-4o Mini"), m("gpt-4.1", "GPT-4.1"), m("o3", "o3"), m("o3-mini", "o3 Mini"),
-		m("o1", "o1"),
-	},
-	"anthropic": {
-		m("claude-opus-4-5-20251101", "Claude Opus 4.5"),
-		m("claude-sonnet-4-5-20250929", "Claude Sonnet 4.5"),
-		m("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
-		m("claude-sonnet-4-20250514", "Claude Sonnet 4"),
-		m("claude-opus-4-20250514", "Claude Opus 4"),
-		m("claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet"),
-	},
-	"gemini": {
-		m("gemini-3.1-pro-preview", "Gemini 3.1 Pro Preview"), m("gemini-3-flash-preview", "Gemini 3 Flash Preview"),
-		m("gemini-2.5-pro", "Gemini 2.5 Pro"), m("gemini-2.5-flash", "Gemini 2.5 Flash"),
-	},
-}
+// In an extension-first architecture, extensions discover models via WASM list_models and users register custom models.
+var providerModels = map[string][]ModelSpec{}
 
 // ModelsForProvider returns the curated model list for a provider id, merging
 // the static catalog with any user-registered custom models. Custom models

@@ -187,6 +187,9 @@ func TestExtractBaseModelSlug(t *testing.T) {
 		{input: "llama3:8b", expected: "llama3"},
 		{input: "deepseek/DeepSeek-R1:latest", expected: "deepseek-r1"},
 		{input: "  google/GEMINI-2.5-PRO  ", expected: "gemini-2.5-pro"},
+		{input: "gemini-3.7-flash-high", expected: "gemini-3.7-flash"},
+		{input: "gemini-2.5-flash-thinking", expected: "gemini-2.5-flash"},
+		{input: "claude-3-7-sonnet-search", expected: "claude-3-7-sonnet"},
 		{input: "", expected: ""},
 	}
 

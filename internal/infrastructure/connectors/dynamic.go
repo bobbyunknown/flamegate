@@ -14,6 +14,7 @@ import (
 const (
 	CustomOpenAIPrefix    = "custom-openai-"
 	CustomAnthropicPrefix = "custom-anthropic-"
+	CustomGeminiPrefix    = "custom-gemini-"
 )
 
 // DynamicProvider is a runtime-registered provider instance backed by either
@@ -111,13 +112,13 @@ func dynamicModelsFor(providerID string) []ModelSpec {
 // rather than blocking the request.
 //
 // Matches:
-//   - "custom-openai" and "custom-anthropic" (the built-in generic gateways)
-//   - "custom-openai-*" and "custom-anthropic-*" (user-defined dynamic instances)
+//   - "custom-openai", "custom-anthropic", and "custom-gemini" (the built-in generic gateways)
+//   - "custom-openai-*", "custom-anthropic-*", "custom-gemini-*" (user-defined dynamic instances)
 func IsCustomProviderID(id string) bool {
-	if id == "custom-openai" || id == "custom-anthropic" {
+	if id == "custom-openai" || id == "custom-anthropic" || id == "custom-gemini" {
 		return true
 	}
-	return strings.HasPrefix(id, CustomOpenAIPrefix) || strings.HasPrefix(id, CustomAnthropicPrefix)
+	return strings.HasPrefix(id, CustomOpenAIPrefix) || strings.HasPrefix(id, CustomAnthropicPrefix) || strings.HasPrefix(id, CustomGeminiPrefix)
 }
 
 // dynamicConnector builds a connector on demand for a dynamic provider. Custom
@@ -132,6 +133,8 @@ func dynamicConnector(providerID string) (core.Connector, bool) {
 		return NewAnthropic(p.ID, p.BaseURL), true
 	case core.DialectOpenAI:
 		return NewOpenAICompatible(p.ID, p.BaseURL), true
+	case core.DialectGemini:
+		return NewGemini(p.ID, p.BaseURL), true
 	default:
 		return nil, false
 	}

@@ -191,7 +191,8 @@ func (s *Handler) adminInstallExtension(w http.ResponseWriter, r *http.Request) 
 	connectors.RegisterExtensionSpec(connectors.ProviderSpec{
 		ID:           slug,
 		DisplayName:  extSchema.Name,
-		Alias:        slug,
+		Alias:        extSchema.Alias,
+		Aliases:      extSchema.Aliases,
 		Dialect:      core.DialectOpenAI,
 		AuthKind:     ext.AuthKind,
 		AuthModes:    extSchema.AuthModes,

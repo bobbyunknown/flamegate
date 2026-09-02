@@ -7,13 +7,13 @@ import (
 )
 
 func TestCatalogHasCoreProviders(t *testing.T) {
-	want := []string{"openai", "anthropic", "gemini", "custom-openai", "custom-anthropic"}
+	want := []string{"custom-openai", "custom-anthropic", "custom-gemini"}
 	for _, id := range want {
 		if _, ok := SpecByID(id); !ok {
 			t.Errorf("catalog missing provider %q", id)
 		}
 	}
-	for _, id := range []string{"groq", "openrouter", "tavily", "elevenlabs", "xiaomi-mimo"} {
+	for _, id := range []string{"openai", "anthropic", "gemini", "groq", "openrouter", "tavily", "elevenlabs"} {
 		if _, ok := SpecByID(id); ok {
 			t.Errorf("catalog should not include purged provider %q", id)
 		}
@@ -21,10 +21,13 @@ func TestCatalogHasCoreProviders(t *testing.T) {
 }
 
 func TestIsNativeSlug(t *testing.T) {
-	for _, id := range []string{"openai", "anthropic", "gemini", "custom-openai", "custom-anthropic", "OpenAI"} {
+	for _, id := range []string{"custom-openai", "custom-anthropic", "custom-gemini"} {
 		if !IsNativeSlug(id) {
 			t.Errorf("IsNativeSlug(%q) = false, want true", id)
 		}
+	}
+	if IsNativeSlug("openai") {
+		t.Error("IsNativeSlug(openai) = true, want false")
 	}
 	if IsNativeSlug("xiaomi-mimo") {
 		t.Error("IsNativeSlug(xiaomi-mimo) = true, want false")
@@ -40,7 +43,7 @@ func TestSpecsByKindLLM(t *testing.T) {
 	for _, s := range specs {
 		got[s.ID] = true
 	}
-	for _, id := range []string{"openai", "anthropic", "gemini"} {
+	for _, id := range []string{"custom-openai", "custom-anthropic", "custom-gemini"} {
 		if !got[id] {
 			t.Errorf("kind llm: expected provider %q", id)
 		}
@@ -48,6 +51,9 @@ func TestSpecsByKindLLM(t *testing.T) {
 }
 
 func TestModelsByKind(t *testing.T) {
+	SetDynamicModels("custom-openai", []ModelSpec{m("my-model", "My Model")})
+	defer SetDynamicModels("custom-openai", nil)
+
 	llms := ModelsByKind(core.ServiceLLM)
 	if len(llms) == 0 {
 		t.Fatal("expected at least one LLM model in catalog")
@@ -57,23 +63,16 @@ func TestModelsByKind(t *testing.T) {
 			t.Errorf("ModelsByKind(llm) returned non-llm model %q (%q)", pm.Model.ID, pm.Model.Kind)
 		}
 	}
-	// Media purged from static catalog — empty image list is OK.
-	images := ModelsByKind(core.ServiceImage)
-	for _, pm := range images {
-		if pm.Model.Kind != core.ServiceImage {
-			t.Errorf("ModelsByKind(image) returned non-image model %q", pm.Model.ID)
-		}
-	}
 }
 
 func TestFindModel(t *testing.T) {
-	if _, ok := FindModel("openai", "gpt-4o"); !ok {
-		t.Error("expected to find openai/gpt-4o")
+	SetDynamicModels("custom-openai", []ModelSpec{m("gpt-4o", "GPT-4o")})
+	defer SetDynamicModels("custom-openai", nil)
+
+	if _, ok := FindModel("custom-openai", "gpt-4o"); !ok {
+		t.Error("expected to find custom-openai/gpt-4o")
 	}
-	if _, ok := FindModel("anthropic", "claude-sonnet-4-20250514"); !ok {
-		t.Error("expected to find anthropic claude sonnet 4")
-	}
-	if _, ok := FindModel("openai", "nonexistent-model"); ok {
+	if _, ok := FindModel("custom-openai", "nonexistent-model"); ok {
 		t.Error("expected miss for nonexistent model")
 	}
 }
@@ -90,12 +89,12 @@ func TestDrivableDialect(t *testing.T) {
 
 func TestRegistryRegistersDrivableProviders(t *testing.T) {
 	r := DefaultRegistry()
-	for _, provider := range []string{"openai", "anthropic", "gemini", "custom-openai", "custom-anthropic"} {
+	for _, provider := range []string{"custom-openai", "custom-anthropic", "custom-gemini"} {
 		if !r.Has(provider) {
 			t.Errorf("registry should have connector for %q", provider)
 		}
 	}
-	for _, provider := range []string{"openrouter", "xiaomi-mimo", "does-not-exist"} {
+	for _, provider := range []string{"openai", "anthropic", "gemini", "openrouter", "xiaomi-mimo", "does-not-exist"} {
 		if r.Has(provider) {
 			t.Errorf("registry should not have connector for %q", provider)
 		}

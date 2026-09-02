@@ -101,7 +101,7 @@ func (s *Handler) adminCreateCustomProvider(w http.ResponseWriter, r *http.Reque
 	}
 	dialect, prefix, ok := customDialect(body.Dialect)
 	if !ok {
-		WriteError(w, http.StatusBadRequest, "dialect must be 'openai' or 'anthropic'")
+		WriteError(w, http.StatusBadRequest, "dialect must be 'openai', 'anthropic', or 'gemini'")
 		return
 	}
 	baseURL := strings.TrimSpace(body.BaseURL)
@@ -383,6 +383,8 @@ func customDialect(token string) (core.Dialect, string, bool) {
 		return core.DialectOpenAI, connectors.CustomOpenAIPrefix, true
 	case "anthropic", "anthropic-compatible":
 		return core.DialectAnthropic, connectors.CustomAnthropicPrefix, true
+	case "gemini", "gemini-compatible":
+		return core.DialectGemini, connectors.CustomGeminiPrefix, true
 	default:
 		return "", "", false
 	}

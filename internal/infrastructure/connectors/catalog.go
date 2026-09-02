@@ -20,8 +20,10 @@ type RegionOption struct {
 type ProviderSpec struct {
 	ID          string
 	DisplayName string
-	// Alias is the short code accepted in model strings (e.g. "ds" -> deepseek).
-	Alias   string
+	// Alias is the short code accepted in model strings (e.g. "agy" -> antigravity).
+	Alias string
+	// Aliases lists all alternative accepted short codes.
+	Aliases []string
 	Dialect core.Dialect
 	BaseURL string
 	// AuthKind is the default authentication mechanism (api_key, oauth, none).
@@ -75,35 +77,20 @@ func Catalog() []ProviderSpec {
 	return append(append(nativeProviders(), dynamicSpecs()...), extensionSpecs()...)
 }
 
-// IsNativeSlug reports whether slug is one of the five static native providers.
+// IsNativeSlug reports whether slug is one of the static custom template providers.
 // It must not consult Catalog() — dynamic/extension rows are not native.
 func IsNativeSlug(slug string) bool {
 	switch strings.ToLower(slug) {
-	case "openai", "anthropic", "gemini", "custom-openai", "custom-anthropic":
+	case "custom-openai", "custom-anthropic", "custom-gemini":
 		return true
 	default:
 		return false
 	}
 }
 
-// nativeProviders is the only static catalog: core dialects + custom gateways.
+// nativeProviders returns internal template specs used for dynamic custom providers.
 func nativeProviders() []ProviderSpec {
 	return []ProviderSpec{
-		{
-			ID: "openai", DisplayName: "OpenAI", Alias: "openai", Dialect: core.DialectOpenAI,
-			BaseURL: "https://api.openai.com/v1", AuthKind: "api_key", ServiceKinds: llm(),
-			Color: "#10A37F", Website: "https://platform.openai.com", APIKeyURL: "https://platform.openai.com/api-keys",
-		},
-		{
-			ID: "anthropic", DisplayName: "Anthropic", Alias: "anthropic", Dialect: core.DialectAnthropic,
-			BaseURL: "https://api.anthropic.com/v1", AuthKind: "api_key", ServiceKinds: llm(),
-			Color: "#D97757", Website: "https://console.anthropic.com", APIKeyURL: "https://console.anthropic.com/settings/keys",
-		},
-		{
-			ID: "gemini", DisplayName: "Gemini", Alias: "gemini", Dialect: core.DialectGemini,
-			BaseURL: "https://generativelanguage.googleapis.com/v1beta", AuthKind: "api_key", ServiceKinds: llm(),
-			Color: "#4285F4", Website: "https://ai.google.dev", APIKeyURL: "https://aistudio.google.com/app/apikey",
-		},
 		{
 			ID: "custom-openai", DisplayName: "Custom (OpenAI-compatible)", Alias: "custom-openai",
 			Dialect: core.DialectOpenAI, BaseURL: "", AuthKind: "api_key", ServiceKinds: llm(), Pinned: true,
@@ -111,6 +98,10 @@ func nativeProviders() []ProviderSpec {
 		{
 			ID: "custom-anthropic", DisplayName: "Custom (Anthropic-compatible)", Alias: "custom-anthropic",
 			Dialect: core.DialectAnthropic, BaseURL: "", AuthKind: "api_key", ServiceKinds: llm(), Pinned: true,
+		},
+		{
+			ID: "custom-gemini", DisplayName: "Custom (Gemini-compatible)", Alias: "custom-gemini",
+			Dialect: core.DialectGemini, BaseURL: "", AuthKind: "api_key", ServiceKinds: llm(), Pinned: true,
 		},
 	}
 }
@@ -127,9 +118,18 @@ func SpecByID(id string) (ProviderSpec, bool) {
 
 // SpecByAlias resolves a provider by its short alias or id.
 func SpecByAlias(aliasOrID string) (ProviderSpec, bool) {
+	aliasOrID = strings.ToLower(strings.TrimSpace(aliasOrID))
+	if aliasOrID == "" {
+		return ProviderSpec{}, false
+	}
 	for _, p := range Catalog() {
-		if p.ID == aliasOrID || p.Alias == aliasOrID {
+		if strings.EqualFold(p.ID, aliasOrID) || strings.EqualFold(p.Alias, aliasOrID) {
 			return p, true
+		}
+		for _, a := range p.Aliases {
+			if strings.EqualFold(a, aliasOrID) {
+				return p, true
+			}
 		}
 	}
 	return ProviderSpec{}, false

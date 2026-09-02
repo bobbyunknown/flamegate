@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/bobbyunknown/flamegate/internal/infrastructure/connectors"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/dispatch"
 	"github.com/bobbyunknown/flamegate/internal/infrastructure/persistence/schema"
 )
@@ -257,5 +258,58 @@ func TestResolveTargetsLatencyStrategyKeepsOrderWithoutData(t *testing.T) {
 	}
 	if res.Targets[0].Provider != "openai" {
 		t.Fatalf("declared order not preserved: %+v", res.Targets)
+	}
+}
+
+func TestResolveTargetsExtensionAliasesAndSlugs(t *testing.T) {
+	connectors.RegisterExtensionSpec(connectors.ProviderSpec{
+		ID:      "antigravity",
+		Alias:   "agy",
+		Aliases: []string{"agy", "antigravity"},
+	})
+	connectors.RegisterExtensionSpec(connectors.ProviderSpec{
+		ID:      "cline",
+		Alias:   "cl",
+		Aliases: []string{"cl", "cline"},
+	})
+	connectors.RegisterExtensionSpec(connectors.ProviderSpec{
+		ID:      "xiaomi-mimo",
+		Alias:   "mimo",
+		Aliases: []string{"mimo", "xm", "xiaomi-mimo"},
+	})
+	defer connectors.UnregisterExtensionSpec("antigravity")
+	defer connectors.UnregisterExtensionSpec("cline")
+	defer connectors.UnregisterExtensionSpec("xiaomi-mimo")
+
+	tests := []struct {
+		modelInput   string
+		wantProvider string
+		wantModel    string
+	}{
+		{"agy/gemini-2.5-flash", "antigravity", "gemini-2.5-flash"},
+		{"antigravity/gemini-2.5-flash", "antigravity", "gemini-2.5-flash"},
+		{"cl/glm-5.3-flash", "cline", "glm-5.3-flash"},
+		{"cline/glm-5.3-flash", "cline", "glm-5.3-flash"},
+		{"mimo/mimo-v2-flash", "xiaomi-mimo", "mimo-v2-flash"},
+		{"xm/mimo-v2-flash", "xiaomi-mimo", "mimo-v2-flash"},
+		{"xiaomi-mimo/mimo-v2-flash", "xiaomi-mimo", "mimo-v2-flash"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.modelInput, func(t *testing.T) {
+			res, err := resolveTargets(context.Background(), &fakeChains{}, &fakeAliases{}, nil, "t1", tt.modelInput)
+			if err != nil {
+				t.Fatalf("unexpected error for %q: %v", tt.modelInput, err)
+			}
+			if len(res.Targets) != 1 {
+				t.Fatalf("got %d targets, want 1", len(res.Targets))
+			}
+			if res.Targets[0].Provider != tt.wantProvider {
+				t.Errorf("provider = %q, want %q", res.Targets[0].Provider, tt.wantProvider)
+			}
+			if res.Targets[0].Model != tt.wantModel {
+				t.Errorf("model = %q, want %q", res.Targets[0].Model, tt.wantModel)
+			}
+		})
 	}
 }

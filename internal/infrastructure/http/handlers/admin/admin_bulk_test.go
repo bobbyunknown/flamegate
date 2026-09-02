@@ -57,7 +57,8 @@ func TestBulkCreateAccounts_PartialOutcomes(t *testing.T) {
 
 	// sk-1 appears twice (the second is a duplicate), one item has an empty key.
 	body := `{
-		"provider": "openai",
+		"provider": "custom-openai",
+		"base_url": "https://api.openai.com/v1",
 		"validate": false,
 		"items": [
 			{"label": "alpha", "api_key": "sk-1"},

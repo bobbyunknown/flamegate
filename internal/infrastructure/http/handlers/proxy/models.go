@@ -66,8 +66,12 @@ func (s *Handler) listModels(ctx context.Context, tenantID string) []modelEntry 
 		if !usableProviders[pm.Provider] {
 			continue
 		}
+		prefix := pm.Provider
+		if spec, ok := connectors.SpecByAlias(pm.Provider); ok && spec.Alias != "" {
+			prefix = spec.Alias
+		}
 		data = s.appendModelEntry(data, seen, modelEntry{
-			ID:       pm.Provider + "/" + pm.Model.ID,
+			ID:       prefix + "/" + pm.Model.ID,
 			Object:   "model",
 			OwnedBy:  pm.Provider,
 			Provider: pm.Provider,
@@ -84,9 +88,13 @@ func (s *Handler) listModels(ctx context.Context, tenantID string) []modelEntry 
 		if !usableProviders[provider] {
 			continue
 		}
+		prefix := provider
+		if spec, ok := connectors.SpecByAlias(provider); ok && spec.Alias != "" {
+			prefix = spec.Alias
+		}
 		for _, lm := range models {
 			data = s.appendModelEntry(data, seen, modelEntry{
-				ID:       provider + "/" + lm.ID,
+				ID:       prefix + "/" + lm.ID,
 				Object:   "model",
 				OwnedBy:  provider,
 				Provider: provider,
@@ -328,11 +336,15 @@ func extensionModelToEntry(m schema.ExtensionModel) modelEntry {
 	if modelID == "" {
 		modelID = strings.TrimSpace(m.Slug)
 	}
+	prefix := provider
+	if spec, ok := connectors.SpecByAlias(provider); ok && spec.Alias != "" {
+		prefix = spec.Alias
+	}
 	id := modelID
-	if provider != "" && modelID != "" {
-		id = provider + "/" + modelID
-	} else if provider != "" {
-		id = provider
+	if prefix != "" && modelID != "" {
+		id = prefix + "/" + modelID
+	} else if prefix != "" {
+		id = prefix
 	}
 	name := strings.TrimSpace(m.DisplayName)
 	if name == "" {
@@ -377,6 +389,9 @@ func (s *Handler) HandleModelInfo(w http.ResponseWriter, r *http.Request) {
 	if !ok || provider == "" || model == "" {
 		WriteError(w, http.StatusBadRequest, "id must be in provider/model form")
 		return
+	}
+	if spec, ok := connectors.SpecByAlias(provider); ok {
+		provider = spec.ID
 	}
 	key, _ := authedKey(r.Context())
 	if !s.usableModelProviders(r.Context(), tenantOf(key))[provider] {

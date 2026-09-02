@@ -27,6 +27,8 @@ var slugRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,62}[a-z0-9]$`)
 // ExtensionSchema represents the parsed schema.json of a WASM extension.
 type ExtensionSchema struct {
 	Slug              string            `json:"slug"`
+	Alias             string            `json:"alias,omitempty"`
+	Aliases           []string          `json:"aliases,omitempty"`
 	Name              string            `json:"name"`
 	Version           string            `json:"version"`
 	Description       string            `json:"description,omitempty"`

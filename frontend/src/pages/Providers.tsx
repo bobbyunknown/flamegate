@@ -21,11 +21,9 @@ import { useToast } from "../components/Toast";
 
 // Popularity ranking for default sort (lower = higher). Extensions fall to DEFAULT_RANK.
 const POPULARITY: Record<string, number> = {
-  openai: 1,
-  anthropic: 2,
-  gemini: 3,
   "custom-openai": 10,
   "custom-anthropic": 11,
+  "custom-gemini": 12,
 };
 const DEFAULT_RANK = 999;
 
@@ -68,9 +66,9 @@ export function ProvidersPage() {
     const all = providers.data?.providers ?? [];
     return all
       .filter((p) => !p.hidden)
-      // Templates custom-openai / custom-anthropic are created via "New custom provider"
-      // (dynamic custom-openai-* instances). Hide the bare templates from the grid.
-      .filter((p) => p.id !== "custom-openai" && p.id !== "custom-anthropic")
+      // Templates custom-openai / custom-anthropic / custom-gemini are created via "New custom provider"
+      // (dynamic custom-* instances). Hide the bare templates from the grid.
+      .filter((p) => p.id !== "custom-openai" && p.id !== "custom-anthropic" && p.id !== "custom-gemini")
       .filter((p) => filter === "all" || p.service_kinds.includes(filter))
       .filter((p) => {
         if (!searchQuery.trim()) return true;
@@ -230,7 +228,7 @@ function CreateCustomProviderModal({ open, onClose }: { open: boolean; onClose: 
       open={open}
       onClose={() => { reset(); onClose(); }}
       title="New custom provider"
-      subtitle="A dedicated instance of an OpenAI- or Anthropic-compatible endpoint. Each instance is isolated with its own base URL, accounts, and models."
+      subtitle="A dedicated instance of an OpenAI-, Anthropic-, or Gemini-compatible endpoint. Each instance is isolated with its own base URL, accounts, and models."
     >
       <form
         className="space-y-4 px-6 py-5"
@@ -255,6 +253,7 @@ function CreateCustomProviderModal({ open, onClose }: { open: boolean; onClose: 
             <SelectContent>
               <SelectItem value="openai">OpenAI-compatible</SelectItem>
               <SelectItem value="anthropic">Anthropic-compatible</SelectItem>
+              <SelectItem value="gemini">Gemini-compatible</SelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -317,7 +316,14 @@ function ProviderCard({ provider: p, accountCount }: { provider: Provider; accou
 
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold">{p.display_name}</p>
-        <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{p.id}</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-xs text-muted-foreground">
+          <span className="truncate">{p.id}</span>
+          {p.alias && p.alias !== p.id && (
+            <span className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              alias: {p.alias}
+            </span>
+          )}
+        </div>
       </div>
 
       <p className="mt-auto text-xs text-muted-foreground">

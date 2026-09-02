@@ -384,6 +384,16 @@ func (p *Pipeline) Chat(ctx context.Context, req *core.ChatRequest, opts Options
 			return nil, &core.ProviderError{Kind: core.ErrPolicyBlocked, Message: gres.Reason}
 		}
 
+		if resp.Usage.PromptTokens == 0 && resp.Usage.CompletionTokens == 0 {
+			prompt := core.EstimatePromptTokens(req)
+			completion := core.EstimateTokensFromChars(len(resp.Message.TextContent()))
+			resp.Usage = core.Usage{
+				PromptTokens:     prompt,
+				CompletionTokens: completion,
+				TotalTokens:      prompt + completion,
+			}
+		}
+
 		cost := p.record(ctx, req.Metadata, attempt, resp.Usage, false, latency, save)
 		p.cacheStore(ctx, vec, resp)
 		// Confirm budget reservation — usage is now recorded in DB.
@@ -632,7 +642,17 @@ func (p *Pipeline) streamExec(ctx context.Context, req *core.ChatRequest, opts O
 				budgetScope := scope
 				usageFunc := func() {
 					defer release(0)
-					usage := extractUsageFromStream(capture.Bytes())
+					rawBytes := capture.Bytes()
+					usage := extractUsageFromStream(rawBytes)
+					if usage.PromptTokens == 0 && usage.CompletionTokens == 0 {
+						prompt := core.EstimatePromptTokens(req)
+						completion := core.EstimateTokensFromChars(len(rawBytes) / 4)
+						usage = core.Usage{
+							PromptTokens:     prompt,
+							CompletionTokens: completion,
+							TotalTokens:      prompt + completion,
+						}
+					}
 					totalLatency := time.Since(started)
 					cost := p.recordWithTTFT(ctx, meta, acc, usage, false, totalLatency, ttft, saveCopy)
 					p.budgetConfirm(budgetScope, cost)
@@ -804,12 +824,14 @@ func (p *Pipeline) pumpStream(ctx context.Context, req *core.ChatRequest, in <-c
 				// include_usage) but the provider never sent one, synthesize an
 				// estimate so the client still receives a final usage event.
 				// Mirrors 9router's estimateUsage/addBufferToUsage behavior.
-				if req.IncludeUsage && !sawUsage {
+				if !sawUsage {
 					est := estimateStreamUsage(req, completionChars)
 					if est.TotalTokens > 0 {
-						select {
-						case out <- core.StreamChunk{Type: core.ChunkUsage, Usage: &est}:
-						case <-stallCtx.Done():
+						if req.IncludeUsage {
+							select {
+							case out <- core.StreamChunk{Type: core.ChunkUsage, Usage: &est}:
+							case <-stallCtx.Done():
+							}
 						}
 						usage = est
 					}

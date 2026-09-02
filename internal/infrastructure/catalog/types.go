@@ -90,5 +90,13 @@ func ExtractBaseModelSlug(modelID string) string {
 	if i := strings.Index(modelID, ":"); i >= 0 {
 		modelID = modelID[:i]
 	}
-	return strings.ToLower(strings.TrimSpace(modelID))
+	modelID = strings.ToLower(strings.TrimSpace(modelID))
+	suffixes := []string{"-high", "-low", "-medium", "-thinking", "-search"}
+	for _, s := range suffixes {
+		if strings.HasSuffix(modelID, s) {
+			modelID = strings.TrimSuffix(modelID, s)
+			break
+		}
+	}
+	return modelID
 }

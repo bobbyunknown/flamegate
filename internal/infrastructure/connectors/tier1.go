@@ -2,10 +2,10 @@ package connectors
 
 import "strings"
 
-// tier1Slugs are the providers that remain natively connected because they
+// tier1Slugs are the custom template providers that remain natively connected because they
 // use DirectStreamable (zero-copy streaming via io.ReadCloser) which cannot
-// be implemented inside WASM. See spec line 392-396.
-var tier1Slugs = []string{"openai", "anthropic", "gemini"}
+// be implemented inside WASM.
+var tier1Slugs = []string{"custom-openai", "custom-anthropic", "custom-gemini"}
 
 // IsTier1Provider reports whether provider should stay as a native
 // connector rather than being routed through WASM. Matching is case-
